@@ -17,18 +17,11 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        // 玄星专属包名（1.1 起从 me.rerere.rikkahub 改为 com.xuanxing.app）。
-        // 注意：改包名后旧版（me.rerere.rikkahub）无法覆盖升级，老用户需卸载重装（先备份数据）。
-        // namespace 与源码 package 仍保持 me.rerere.rikkahub 不变（解耦，不影响编译）。
-        applicationId = "com.xuanxing.app"
+        applicationId = "me.rerere.rikkahub"
         minSdk = 26
         targetSdk = 37
-        // versionCode 递增保证能覆盖旧包升级（不可降级）。
-        // 注意：versionName 会被拼进 HTTP User-Agent（DataSourceModule），
-        // HTTP header 只允许 ASCII，绝不能用中文，否则 okhttp 抛异常崩溃。
-        // 应用显示名是 app_name（"玄星"），与此无关。
-        versionCode = 8902
-        versionName = "1.1.3"
+        versionCode = 177
+        versionName = "2.4.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
