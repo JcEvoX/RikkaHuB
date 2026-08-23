@@ -55,7 +55,7 @@ import java.net.InetSocketAddress
 // 相关 App 包名，用于一键拉起与安装检测
 private const val PKG_MT = "bin.mt.plus"
 private const val PKG_MT_CANARY = "bin.mt.plus.canary"
-private const val PKG_NIEHE = "com.xuanxingnihe" // 玄星逆核（聚合逆向后端）
+private const val PKG_NIEHE = "com.xuanxingnihe" // SOMCP（聚合逆向后端）
 private const val PKG_PROXYPIN = "com.network.proxy"
 
 /**
@@ -134,7 +134,7 @@ fun ReverseWorkbenchCard(
                 hits
             }
             if (found.isEmpty()) {
-                toaster.show("没探测到可用后端。请先在 MT管理器/玄星逆核/ProxyPin 里启动它们的 MCP 服务再试。")
+                toaster.show("没探测到可用后端。请先在 MT管理器/SOMCP/ProxyPin 里启动它们的 MCP 服务再试。")
             } else {
                 // 把探测到的端口写回对应 MCP 的 URL，并启用
                 val updated = settings.mcpServers.map { server ->
@@ -152,7 +152,7 @@ fun ReverseWorkbenchCard(
                 val names = found.keys.mapNotNull { id ->
                     when (id) {
                         MT_APK_MCP_SERVER_ID -> "MT管理器:${found[id]}"
-                        SOMCP_SO_MCP_SERVER_ID -> "玄星逆核:${found[id]}"
+                        SOMCP_SO_MCP_SERVER_ID -> "SOMCP:${found[id]}"
                         PROXYPIN_MCP_SERVER_ID -> "ProxyPin:${found[id]}"
                         else -> null
                     }
@@ -192,7 +192,7 @@ fun ReverseWorkbenchCard(
             }
 
             Text(
-                text = "预置 3 个本机逆向 MCP 后端（玄星逆核已聚合全套逆向工具），每个可单独开关、单独改端口。" +
+                text = "预置 3 个本机逆向 MCP 后端（SOMCP已聚合全套逆向工具），每个可单独开关、单独改端口。" +
                     "不会填地址？先在对应 App 里启动 MCP 服务，再点下面「一键探测并连接」——自动找到端口并连上。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -222,7 +222,7 @@ fun ReverseWorkbenchCard(
             )
             HorizontalDivider()
             BackendRow(
-                label = "玄星逆核 · 聚合逆向",
+                label = "SOMCP · 聚合逆向",
                 desc = "反编译/脱壳/SO分析/模拟执行/回编签名/Frida 全套",
                 enabled = serverOf(SOMCP_SO_MCP_SERVER_ID)?.commonOptions?.enable == true,
                 port = portOf(serverOf(SOMCP_SO_MCP_SERVER_ID)?.serverUrl, "8000"),
@@ -250,7 +250,7 @@ fun ReverseWorkbenchCard(
                 OutlinedButton(onClick = {
                     context.launchOrOpenMarket(PKG_NIEHE)
                 }) {
-                    Text(if (context.isPackageInstalled(PKG_NIEHE)) "打开玄星逆核" else "装玄星逆核")
+                    Text(if (context.isPackageInstalled(PKG_NIEHE)) "打开SOMCP" else "装SOMCP")
                 }
                 OutlinedButton(onClick = {
                     context.launchOrOpenMarket(PKG_PROXYPIN)
@@ -261,7 +261,7 @@ fun ReverseWorkbenchCard(
 
             Text(
                 text = "提示：启用后请到对应 App 里启动服务——MT 管理器在侧边栏开启「APK MCP」并保持后台，" +
-                    "玄星逆核在首页点大启动按钮开服务（端口 8000）。都监听 127.0.0.1，仅本机可用。",
+                    "SOMCP在首页点大启动按钮开服务（端口 8000）。都监听 127.0.0.1，仅本机可用。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

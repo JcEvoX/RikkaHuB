@@ -296,10 +296,10 @@ class SettingsStore(
                     ttsProviders.add(defaultTTSProvider.copyProvider())
                 }
             }
-            // 池鸳魔改版：预置 MT 管理器 / 玄星逆核 / ProxyPin 逆向 MCP 后端（默认禁用，不产生任何连接）。
+            // 池鸳魔改版：预置 MT 管理器 / SOMCP / ProxyPin 逆向 MCP 后端（默认禁用，不产生任何连接）。
             // 必须在下方"清理无效 MCP 引用"之前注入，否则逆向工作台助手对它们的引用会被过滤掉。
             val mcpServers = it.mcpServers.toMutableList()
-            // 迁移：移除已废弃的"算法助手"预置后端（玄星逆核已聚合其能力）。老用户升级时清掉这条僵尸项。
+            // 迁移：移除已废弃的"算法助手"预置后端（SOMCP已聚合其能力）。老用户升级时清掉这条僵尸项。
             val deprecatedAlgoAideId = Uuid.parse("a190a1de-0000-4765-8700-000000008765")
             mcpServers.removeAll { server -> server.id == deprecatedAlgoAideId }
             DEFAULT_REVERSE_MCP_SERVERS.forEach { seed ->
@@ -808,7 +808,7 @@ private fun Model.findModelProviderFromList(providers: List<ProviderSetting>): P
 internal val MT_APK_MCP_SERVER_ID = Uuid.parse("b1a7c0de-0000-4a17-8b00-000000008787")
 
 /**
- * 玄星逆核 · 聚合逆向 MCP：一个后台聚合全套逆向工具，默认端口 8000。
+ * SOMCP · 聚合逆向 MCP：一个后台聚合全套逆向工具，默认端口 8000。
  * 包含 SO 层（反汇编/分析/patch/模拟执行 Unidbg）+ 反编译（jadx/baksmali/apk_decode）
  * + 脱壳（dex_unpack 内存 dump）+ 回编签名（smali_assemble/apk_rebuild/apk_sign）
  * + 动态（frida_control）+ Flutter（blutter）。替代原来单独的 SOMCP 与算法助手。
@@ -887,8 +887,8 @@ internal val DEFAULT_REVERSE_MCP_SERVERS: List<McpServerConfig> = listOf(
         id = SOMCP_SO_MCP_SERVER_ID,
         url = "http://127.0.0.1:8000/mcp",
         commonOptions = McpCommonOptions(
-            enable = false, // 默认禁用：不装玄星逆核的用户不受影响
-            name = "XuanXingNieHe", // 名称只能含字母数字（App 有校验），不能带连字符
+            enable = false, // 默认禁用：不装SOMCP的用户不受影响
+            name = "SOMCP", // 名称只能含字母数字（App 有校验），不能带连字符
         ),
     ),
     McpServerConfig.StreamableHTTPServer(
@@ -907,7 +907,7 @@ private val REVERSE_ENGINEER_ASSISTANT = Assistant(
     quickMessageIds = REVERSE_QUICK_MESSAGE_IDS,
     mcpServers = setOf(
         MT_APK_MCP_SERVER_ID,
-        SOMCP_SO_MCP_SERVER_ID, // 玄星逆核（聚合全套逆向工具，端口 8000）
+        SOMCP_SO_MCP_SERVER_ID, // SOMCP（聚合全套逆向工具，端口 8000）
         PROXYPIN_MCP_SERVER_ID,
     ),
     enabledSkills = setOf(
@@ -963,7 +963,7 @@ private val REVERSE_ENGINEER_ASSISTANT = Assistant(
         1. **APK 层（MT 管理器 APK MCP，工具前缀 `mt_apk_`）**：负责 APK 外层——开包、列目录、
            改 smali、改 AndroidManifest(AXML)、重签名、打包。代表工具：`mt_apk_open`、
            `mt_apk_list`（可用 `view=lib/<abi>` 列出 native 库）、`mt_apk_edit_open`、`mt_apk_build`。
-        2. **玄星逆核（聚合逆向后端，MCP 名 `XuanXingNieHe`，端口 8000）**：一个后台聚合了全套逆向工具，
+        2. **SOMCP（聚合逆向后端，MCP 名 `SOMCP`，端口 8000）**：一个后台聚合了全套逆向工具，
            静态、动态、SO、脱壳、回编签名全都在里面。代表工具：
            - **SO/native**：`so_open` / `analyze_*`（ELF 结构、函数列表、CFG、交叉引用、加密特征扫描）
              / `read_disasm` / `edit_hex` / `edit_asm` / `build_so`，以及 Unidbg 模拟执行（`emulate_call` /
@@ -979,15 +979,15 @@ private val REVERSE_ENGINEER_ASSISTANT = Assistant(
            抓请求/响应、看接口、分析参数。适合分析 App 的网络协议、接口签名。
 
         ## 铁律：别把各层搞混（这是最常见的错误）
-        - SO / native `.so` / ELF 相关的任何任务 → 一律走玄星逆核的 `so_open` + `analyze_*` + `edit_*` + `build_so`。
+        - SO / native `.so` / ELF 相关的任何任务 → 一律走SOMCP的 `so_open` + `analyze_*` + `edit_*` + `build_so`。
         - **绝对不要**用 `mt_apk_open` / `mt_apk_list` 去打开或分析 `.so` 文件。
         - `mt_apk_*` 只用于 APK 外层：开 APK 包、列 lib/ 目录、smali/AXML 编辑、签名打包。
-          （玄星逆核也能完整回编/签名，二选一即可；APK 精细资源编辑用 MT，纯命令式回编用玄星逆核的 `apk_rebuild`。）
+          （SOMCP也能完整回编/签名，二选一即可；APK 精细资源编辑用 MT，纯命令式回编用SOMCP的 `apk_rebuild`。）
         - **网络请求**（要 App 跑起来才拿得到的真实请求、接口签名）才用 ProxyPin 抓包，别用静态工具去猜。
 
         ## 各层怎么选（按用户意图对号入座）
-        - 拆 APK、改 smali/资源、重签打包 → **MT 管理器**（`mt_apk_*`）或玄星逆核 `apk_rebuild`+`apk_sign`
-        - 分析/patch native .so、反编译 dex、脱壳、模拟执行、Frida → **玄星逆核**
+        - 拆 APK、改 smali/资源、重签打包 → **MT 管理器**（`mt_apk_*`）或SOMCP `apk_rebuild`+`apk_sign`
+        - 分析/patch native .so、反编译 dex、脱壳、模拟执行、Frida → **SOMCP**
         - 要看 App 发了什么网络请求、分析接口/协议 → **ProxyPin**（抓包）
 
         ## 推荐工作流
@@ -1004,7 +1004,7 @@ private val REVERSE_ENGINEER_ASSISTANT = Assistant(
         - 安全改 SO：改动前先 `session_history`(snapshot)，`edit_*` 先 `dryRun=true`，确认后再落，
           失败可回滚。等长覆盖或明确边界内的 patch 最稳妥，不要期望自动搬移后续代码。
         - 分析接口签名/加密协议：先用 **ProxyPin** 抓到请求看 sign 等参数 → 用 `protocol-crypto-analysis`
-          技能判断算法 → 若算法在 native 层用 **玄星逆核** `so_*` 定位，或用 `frida_control` 起 Frida 运行时 hook 拿明文与密钥。
+          技能判断算法 → 若算法在 native 层用 **SOMCP** `so_*` 定位，或用 `frida_control` 起 Frida 运行时 hook 拿明文与密钥。
 
         ## 行为准则
         - **用户上传文件**：若消息里出现 `<ReverseFile ... path="X" />`，说明用户上传了 APK/SO/DEX 等二进制，别当文本读。
@@ -1014,7 +1014,7 @@ private val REVERSE_ENGINEER_ASSISTANT = Assistant(
           因此：纯分析/只读类任务用 `mt_apk_open(temporary=true)` 打开；任务做完后调 `mt_apk_close(workspaceId)` 释放，
           只有需要反复重开同一个 APK 或要编辑打包时才用 `temporary=false` 长期保留。用户说磁盘满/缓存大时，提醒去设置→高级功能→一键清理 MT 分析缓存。
         - 如果某个后端离线（工具不可用），先提示用户在对应 App 里启动服务：MT 管理器需在侧边栏开启
-          "APK MCP" 并保持后台运行；玄星逆核需在首页点大启动按钮开服务（默认监听 127.0.0.1:8000）；
+          "APK MCP" 并保持后台运行；SOMCP需在首页点大启动按钮开服务（默认监听 127.0.0.1:8000）；
           ProxyPin 需开启它的 MCP 服务并保持抓包运行。
         - 回复使用中文，代码/命令/路径用 Markdown 代码块。
 
