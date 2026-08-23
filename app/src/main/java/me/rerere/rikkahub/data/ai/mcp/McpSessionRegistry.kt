@@ -42,7 +42,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 private const val TAG = "McpSessionRegistry"
-// 玄星：重连次数 5→10，本机 MCP 后端（MT/SOMCP 等）偶发抖动时多给几次机会，别过早放弃。
+// 重连次数 5→10，本机 MCP 后端（MT/SOMCP 等）偶发抖动时多给几次机会，别过早放弃。
 private const val MAX_RECONNECT_ATTEMPTS = 10
 private const val BASE_RECONNECT_DELAY_MS = 1000L
 private const val MAX_RECONNECT_DELAY_MS = 30000L

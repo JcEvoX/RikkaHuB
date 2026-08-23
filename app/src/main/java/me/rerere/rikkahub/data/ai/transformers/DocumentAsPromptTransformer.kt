@@ -27,7 +27,7 @@ object DocumentAsPromptTransformer : InputMessageTransformer {
                             documents.forEach { document ->
                                 val path = resolveWorkspacePath(document)
                                 val absPath = runCatching { document.url.toUri().toFile().absolutePath }.getOrNull()
-                                // 玄星：逆向二进制文件（APK/SO/DEX 等）不读文本内容（读了是乱码），
+                                // 逆向二进制文件（APK/SO/DEX 等）不读文本内容（读了是乱码），
                                 // 只把路径交给 AI，让它调 MT 管理器 / SOMCP 等 MCP 工具分析。
                                 val prompt = if (isReverseBinaryFile(document.fileName)) {
                                     val pathHint = path ?: absPath ?: document.url

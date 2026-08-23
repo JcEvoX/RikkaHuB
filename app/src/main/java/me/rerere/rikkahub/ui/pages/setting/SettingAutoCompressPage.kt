@@ -38,7 +38,7 @@ import me.rerere.rikkahub.utils.plus
 import org.koin.androidx.compose.koinViewModel
 
 /**
- * 玄星：自定义自动压缩配置页。
+ * 自定义自动压缩配置页。
  * 4 个可调参数：触发 token 估算值 / 最低消息数量 / 保留最近消息 / 摘要目标 tokens。
  * 开启后在“发送前”和“回复后”都会按此策略自动压缩历史，防止上下文超限。
  */

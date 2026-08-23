@@ -18,9 +18,9 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.context.LocalSettings
 
 /**
- * 玄星：加载指示器。
- * useAppIconStyleLoadingIndicator=true 时显示玄星图标（旋转 + 轻微呼吸缩放）；否则用普通圆形指示器。
- * （原 RikkaHub 的兔子吉祥物已替换为玄星图标。）
+ * 加载指示器。
+ * useAppIconStyleLoadingIndicator=true 时显示应用图标（旋转 + 轻微呼吸缩放）；否则用普通圆形指示器。
+ * （原 RikkaHub 的兔子吉祥物已替换为应用图标。）
  * 注意：ic_launcher 在 API26+ 是自适应图标 XML，painterResource 不支持，必须用 ImageView 渲染。
  */
 @Composable

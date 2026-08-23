@@ -50,7 +50,7 @@ import me.rerere.rikkahub.utils.navigateToChatPage
 import org.koin.compose.koinInject
 
 /**
- * 玄星：首次启动引导。小白照着一步步配好模型/后端；会的人可随时「跳过」。
+ * 首次启动引导。小白照着一步步配好模型/后端；会的人可随时「跳过」。
  * 完成或跳过后写入 onboardingCompleted=true，之后不再显示。
  */
 @Composable
@@ -108,13 +108,13 @@ fun OnboardingPage() {
             when (step) {
                 0 -> StepContent(
                     icon = HugeIcons.Sparkles,
-                    title = "欢迎使用玄星",
-                    desc = "玄星是一个 AI 逆向工作台——你用大白话说需求，AI 自己调工具帮你脱壳、写 Frida、抓包、改 SO、分析 APK。\n\n下面用三步带你配好，会的话随时点右上「跳过」。",
+                    title = "欢迎使用 RikkaHub",
+                    desc = "RikkaHub 是一个 AI 逆向工作台——你用大白话说需求，AI 自己调工具帮你脱壳、写 Frida、抓包、改 SO、分析 APK。\n\n下面用三步带你配好，会的话随时点右上「跳过」。",
                 )
                 1 -> StepContent(
                     icon = HugeIcons.Cpu,
                     title = "第 1 步 · 配一个 AI 模型",
-                    desc = "玄星只是客户端，需要你自己的 AI 模型（OpenAI / Claude / Gemini 等接口，用自己的 API Key，很多平台有免费额度）。\n\n点下面按钮去「供应商」填 Key，然后在「模型」里选一个默认模型。",
+                    desc = "RikkaHub 只是客户端，需要你自己的 AI 模型（OpenAI / Claude / Gemini 等接口，用自己的 API Key，很多平台有免费额度）。\n\n点下面按钮去「供应商」填 Key，然后在「模型」里选一个默认模型。",
                     primaryText = "去配置模型",
                     onPrimary = { navController.navigate(Screen.SettingProvider) },
                 )

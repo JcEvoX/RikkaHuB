@@ -263,7 +263,7 @@ class RouteActivity : ComponentActivity() {
         }
         val migrationState by DatabaseMigrationTracker.state.collectAsStateWithLifecycle()
 
-        // 玄星：settings 是异步从 DataStore 加载的，首帧是占位值(init=true, onboardingCompleted=false)。
+        // settings 是异步从 DataStore 加载的，首帧是占位值(init=true, onboardingCompleted=false)。
         // 必须等真实设置加载完(init=false)再决定起始页，否则会用占位的 false 把起始页锁成引导页，导致每次启动都弹引导。
         if (settings.init) {
             // 设置还没加载完，先显示空白背景占位，避免过早锁定 backstack。
@@ -275,7 +275,7 @@ class RouteActivity : ComponentActivity() {
             return
         }
 
-        // 玄星：首次启动显示引导页，否则进首页仪表盘。
+        // 首次启动显示引导页，否则进首页仪表盘。
         val startScreen = if (settings.onboardingCompleted) Screen.Home else Screen.Onboarding
 
         val backStack = rememberNavBackStack(startScreen)
@@ -301,7 +301,7 @@ class RouteActivity : ComponentActivity() {
                     showCloseButton = true,
                 )
                 TTSController()
-                // 玄星：AI 生成悬浮球已改为系统级（ChatKeepAliveService 持有），
+                // AI 生成悬浮球已改为系统级（ChatKeepAliveService 持有），
                 // 切后台/其他 App 也能显示，不再用这里的应用内悬浮窗。
                 Box(
                     modifier = Modifier

@@ -157,7 +157,7 @@ class ChatService(
     private val sessions = ConcurrentHashMap<Uuid, ConversationSession>()
     private val _sessionsVersion = MutableStateFlow(0L)
 
-    // 玄星：持续工作——记录每个会话已"自动继续"的轮数，达上限停止，防止无限烧 token。
+    // 持续工作——记录每个会话已"自动继续"的轮数，达上限停止，防止无限烧 token。
     // 用户手动发新消息时清零（在 sendMessage 里）。
     private val continuousWorkRounds = ConcurrentHashMap<Uuid, Int>()
 
@@ -311,7 +311,7 @@ class ChatService(
     ) {
         if (content.isEmptyInputMessage()) return
 
-        // 玄星：用户手动发消息 = 新任务，清空持续工作计数（自动继续的调用不清）。
+        // 用户手动发消息 = 新任务，清空持续工作计数（自动继续的调用不清）。
         if (!isAutoContinue) continuousWorkRounds.remove(conversationId)
 
         val session = getOrCreateSession(conversationId)
@@ -338,7 +338,7 @@ class ChatService(
                 )
                 saveConversation(conversationId, newConversation)
 
-                // 玄星：发送前预检压缩——若上下文已接近阈值，先压缩再发，防止"当轮就超限"。
+                // 发送前预检压缩——若上下文已接近阈值，先压缩再发，防止"当轮就超限"。
                 if (answer) {
                     runCatching { maybeAutoCompressBeforeSend(conversationId, session.state.value) }
                         .onFailure { Log.e(TAG, "pre-send compress failed", it) }
@@ -488,7 +488,7 @@ class ChatService(
         messageRange: ClosedRange<Int>? = null
     ) {
         val settings = settingsStore.settingsFlow.first()
-        // 玄星：开启消息保活 或 AI 悬浮球时，生成开始就拉起前台服务（服务在生成结束事件后自退）。
+        // 开启消息保活 或 AI 悬浮球时，生成开始就拉起前台服务（服务在生成结束事件后自退）。
         // 悬浮球需系统级悬浮窗常驻，也靠这个前台服务持有，切后台/其他 App 才能一直显示。
         if (settings.enableChatKeepAlive || settings.enableAiFloatingWindow) startChatKeepAlive()
         val initialConversation = getConversationFlow(conversationId).value
@@ -653,12 +653,12 @@ class ChatService(
             launchWithConversationReference(conversationId) {
                 generateSuggestion(conversationId, finalConversation)
             }
-            // 玄星：自动压缩会话。生成完成后，若开启且当前上下文输入 token 超阈值，自动触发压缩，
+            // 自动压缩会话。生成完成后，若开启且当前上下文输入 token 超阈值，自动触发压缩，
             // 避免长对话越滚越贵/超限。用最后一条 assistant 消息的 promptTokens（API 真实值）判断。
             launchWithConversationReference(conversationId) {
                 maybeAutoCompress(conversationId, finalConversation)
             }
-            // 玄星：持续工作。若开启且任务疑似未完成、且没到轮数上限，自动追加"继续"让 AI 接着干。
+            // 持续工作。若开启且任务疑似未完成、且没到轮数上限，自动追加"继续"让 AI 接着干。
             launchWithConversationReference(conversationId) {
                 maybeContinueWork(conversationId, finalConversation)
             }
@@ -666,7 +666,7 @@ class ChatService(
     }
 
     /**
-     * 玄星：持续工作——AI 停下后，如果任务疑似没干完且没到轮数上限，自动发一条"继续"提示让它接着做。
+     * 持续工作——AI 停下后，如果任务疑似没干完且没到轮数上限，自动发一条"继续"提示让它接着做。
      * 靠轮数硬上限兜底防止无限烧 token；检测到完成标志 [任务完成]/[DONE] 就停；用户可随时取消生成。
      */
     private suspend fun maybeContinueWork(conversationId: Uuid, conversation: Conversation) {
@@ -731,7 +731,7 @@ class ChatService(
         }
     }
 
-    /** 玄星：拉起消息保活前台服务（幂等，服务已在跑则无副作用）。 */
+    /** 拉起消息保活前台服务（幂等，服务已在跑则无副作用）。 */
     private fun startChatKeepAlive() {
         runCatching {
             val intent = Intent(context, ChatKeepAliveService::class.java).apply {
@@ -743,7 +743,7 @@ class ChatService(
         }
     }
 
-    /** 玄星：达阈值自动压缩会话（复用 compressConversation）。回复完成后调用，用 API 真实 promptTokens 判断。 */
+    /** 达阈值自动压缩会话（复用 compressConversation）。回复完成后调用，用 API 真实 promptTokens 判断。 */
     private suspend fun maybeAutoCompress(conversationId: Uuid, conversation: Conversation) {
         val settings = settingsStore.settingsFlow.first()
         if (!settings.autoCompressEnabled) return
@@ -769,7 +769,7 @@ class ChatService(
     }
 
     /**
-     * 玄星：发送前预检压缩。防止"当轮就超限"——发请求前用字符数粗估 token，
+     * 发送前预检压缩。防止"当轮就超限"——发请求前用字符数粗估 token，
      * 若已接近阈值就先压缩再发。字符估算：中文约 1 字/token，英文约 4 字/token，取保守值 ~2 字/token。
      */
     private suspend fun maybeAutoCompressBeforeSend(conversationId: Uuid, conversation: Conversation) {
@@ -938,7 +938,7 @@ class ChatService(
             }
         }.onFailure {
             it.printStackTrace()
-            // 玄星：仅当用户【手动】重新生成标题（force=true）时才弹错误卡；
+            // 仅当用户【手动】重新生成标题（force=true）时才弹错误卡；
             // 自动生成标题失败（如标题模型未配置/余额不足/限流）静默忽略，不打扰用户。
             if (force) {
                 addError(

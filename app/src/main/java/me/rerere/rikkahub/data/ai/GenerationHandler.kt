@@ -57,7 +57,7 @@ import kotlin.uuid.Uuid
 
 private const val TAG = "GenerationHandler"
 private const val MAX_TOOL_OUTPUT_CHARS = 32 * 1024
-// 玄星：对话生成遇到可恢复错误（网络/限流/5xx）时的自动重试次数与退避基数。
+// 对话生成遇到可恢复错误（网络/限流/5xx）时的自动重试次数与退避基数。
 private const val MAX_GENERATION_RETRIES = 3
 private const val GENERATION_RETRY_BASE_DELAY_MS = 1500L
 private const val TOOL_OUTPUT_PREVIEW_CHARS = 4 * 1024
@@ -416,7 +416,7 @@ class GenerationHandler(
             customHeaders = buildList {
                 addAll(assistant.customHeaders)
                 addAll(model.customHeaders)
-                // 玄星：助手开启 1M 上下文时，自动加 Claude 1M beta 头（该助手所有模型通用，不支持则自行关闭）。
+                // 助手开启 1M 上下文时，自动加 Claude 1M beta 头（该助手所有模型通用，不支持则自行关闭）。
                 if (assistant.enable1MContext) {
                     add(me.rerere.ai.provider.CustomHeader("anthropic-beta", "context-1m-2025-08-07"))
                 }
@@ -427,7 +427,7 @@ class GenerationHandler(
             }
         )
         if (stream) {
-            // 玄星：流式请求带自动重试。仅在"尚未产出任何 chunk"时对可恢复错误（网络抖动/超时/限流/5xx）
+            // 流式请求带自动重试。仅在"尚未产出任何 chunk"时对可恢复错误（网络抖动/超时/限流/5xx）
             // 重试；一旦开始输出就不再重试，避免内容重复。
             var attempt = 0
             while (true) {
@@ -506,7 +506,7 @@ class GenerationHandler(
     }
 
     /**
-     * 玄星：判断错误是否可恢复（值得自动重试）。
+     * 判断错误是否可恢复（值得自动重试）。
      * 可恢复：网络超时/连接失败/DNS/IO 抖动、HTTP 429(限流)/500/502/503/504。
      * 不可恢复：认证失败(401/403)、参数错误(400)、内容被拦截(flagged)等——重试也没用，直接报错。
      */

@@ -52,7 +52,7 @@ import me.rerere.rikkahub.utils.navigateToChatPage
 import org.koin.androidx.compose.koinViewModel
 import kotlin.uuid.Uuid
 
-// 玄星首页跟随主题配色（深色模式全深、浅色模式全浅，和底栏/其他页统一，避免割裂）。
+// RikkaHub首页跟随主题配色（深色模式全深、浅色模式全浅，和底栏/其他页统一，避免割裂）。
 // 用 @Composable getter 从 MaterialTheme 取色，保持原有 XxXxx 名称不改调用点。
 private val XxBackground: Color @Composable get() = MaterialTheme.colorScheme.background
 private val XxCard: Color @Composable get() = MaterialTheme.colorScheme.surfaceContainer
@@ -61,7 +61,7 @@ private val XxTextDim: Color @Composable get() = MaterialTheme.colorScheme.onSur
 private val XxAccent: Color @Composable get() = MaterialTheme.colorScheme.primary
 
 /**
- * 玄星 · 首页仪表盘（方案B）
+ * RikkaHub · 首页仪表盘（方案B）
  * 顶部欢迎区 + 快捷入口卡片 + 最近会话列表，替代原版樱花抽屉首屏。
  * 固定深色科技风，观感与原型图三一致。
  */
@@ -222,7 +222,7 @@ private fun HeroCard(skillCount: Int) {
                 )
                 Spacer(modifier = Modifier.size(6.dp))
                 Text(
-                    text = "池鸳 · AI 逆向工作台",
+                    text = "RikkaHub · AI 逆向工作台",
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.9f)
                 )

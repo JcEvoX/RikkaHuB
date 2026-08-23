@@ -506,7 +506,7 @@ private fun ModelSettingsForm(
     fun setModelId(id: String) {
         val inputModality = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id)
         val outputModality = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id)
-        // 玄星：识别不出能力（中转/自定义模型名）时默认给 TOOL，避免弹“工具不可用”（用户仍可手动取消）。
+        // 识别不出能力（中转/自定义模型名）时默认给 TOOL，避免弹“工具不可用”（用户仍可手动取消）。
         val abilities = ModelRegistry.MODEL_ABILITIES.getData(id).ifEmpty { listOf(ModelAbility.TOOL) }
         onModelChange(
             model.copy(
@@ -698,7 +698,7 @@ private fun AddModelButton(
             onModelSelected = { model ->
                 val inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(model.modelId)
                 val outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(model.modelId)
-                // 玄星：识别不出能力时默认给 TOOL，避免中转模型弹“工具不可用”。
+                // 识别不出能力时默认给 TOOL，避免中转模型弹“工具不可用”。
                 val abilities = ModelRegistry.MODEL_ABILITIES.getData(model.modelId).ifEmpty { listOf(ModelAbility.TOOL) }
                 onAddModel(
                     model.copy(

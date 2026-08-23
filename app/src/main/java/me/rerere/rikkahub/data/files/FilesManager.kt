@@ -103,7 +103,7 @@ class FilesManager(
         File(context.filesDir, entity.relativePath)
 
     /**
-     * 玄星：把逆向二进制文件（APK/SO/DEX 等）复制到外部公共目录 /sdcard/Download/XuanXing/，
+     * 把逆向二进制文件（APK/SO/DEX 等）复制到外部公共目录 /sdcard/Download/RikkaHub/，
      * 返回复制后的 file:// Uri。放公共目录是为了让外部 MCP（MT 管理器 / SOMCP）能读到——
      * App 私有目录 (filesDir) 外部应用访问不了。需已授予"全部文件访问"权限。
      * 失败（无权限等）时回退到私有 upload 目录。
@@ -111,7 +111,7 @@ class FilesManager(
     fun createReverseFilesByContents(uris: List<Uri>): List<Uri> {
         val publicDir = File(
             android.os.Environment.getExternalStorageDirectory(),
-            "Download/XuanXing"
+            "Download/RikkaHub"
         )
         val ok = runCatching { if (!publicDir.exists()) publicDir.mkdirs() else true }.getOrDefault(false)
         if (!ok || !publicDir.canWrite()) {

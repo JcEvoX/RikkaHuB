@@ -146,7 +146,7 @@ fun ErrorCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // 玄星：常见报错翻译成中文人话（小白友好）；无匹配时直接显示原文
+                // 常见报错翻译成中文人话（小白友好）；无匹配时直接显示原文
                 val friendly = translateErrorMessage(error.error)
                 Text(
                     text = friendly ?: (error.error.message ?: "Unknown error"),
@@ -164,7 +164,7 @@ fun ErrorCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // 玄星：错误来源判断（帮用户分清是模型/API 的锅还是软件本身的问题）
+                // 错误来源判断（帮用户分清是模型/API 的锅还是软件本身的问题）
                 Text(
                     text = classifyErrorSource(error.error),
                     style = MaterialTheme.typography.labelSmall,
@@ -231,8 +231,8 @@ fun ErrorCard(
 }
 
 /**
- * 玄星：判断错误来源，给用户一句人话结论——到底是"模型/接口的问题"还是"软件/网络的问题"，
- * 免得一报错就以为是玄星的 bug 来骂（很多其实是 API 限流/余额/被拦截）。
+ * 判断错误来源，给用户一句人话结论——到底是"模型/接口的问题"还是"软件/网络的问题"，
+ * 免得一报错就以为是RikkaHub的 bug 来骂（很多其实是 API 限流/余额/被拦截）。
  */
 private fun classifyErrorSource(e: Throwable): String {
     val msg = (e.message ?: "").lowercase()
@@ -255,7 +255,7 @@ private fun classifyErrorSource(e: Throwable): String {
             "🌐 来源：模型服务商服务器出错（5xx）—— 是对方服务的问题，稍后重试。"
         // 网络问题
         msg.contains("timeout") || msg.contains("timed out") || cls.contains("Timeout") ->
-            "⏱ 来源：网络超时 —— 检查网络/代理，或稍后重试（玄星会自动重试几次）。"
+            "⏱ 来源：网络超时 —— 检查网络/代理，或稍后重试（会自动重试几次）。"
         msg.contains("unable to resolve host") || msg.contains("unknownhost") || cls.contains("UnknownHost") ->
             "📡 来源：连不上服务器（DNS/网络）—— 检查网络、代理或 baseUrl 是否正确。"
         msg.contains("connection") || msg.contains("connect") || cls.contains("Connect") || cls.contains("IO") ->
@@ -267,7 +267,7 @@ private fun classifyErrorSource(e: Throwable): String {
 }
 
 /**
- * 玄星：把常见的英文报错翻译成中文人话 + 解决建议。命中返回中文，未命中返回 null（调用方回退显示英文原文）。
+ * 把常见的英文报错翻译成中文人话 + 解决建议。命中返回中文，未命中返回 null（调用方回退显示英文原文）。
  * 只做关键词匹配，离线即时零成本，不依赖网络/模型。
  */
 private fun translateErrorMessage(e: Throwable): String? {
@@ -296,7 +296,7 @@ private fun translateErrorMessage(e: Throwable): String? {
             msg.contains("bad gateway") || msg.contains("gateway") ->
             "模型服务商的服务器出错了（5xx）。是对方服务的问题，稍后重试。"
         msg.contains("timeout") || msg.contains("timed out") || cls.contains("Timeout") ->
-            "网络超时了。检查网络或代理后重试（玄星会自动重试几次）。"
+            "网络超时了。检查网络或代理后重试（会自动重试几次）。"
         msg.contains("unable to resolve host") || msg.contains("unknownhost") || cls.contains("UnknownHost") ->
             "连不上服务器（DNS/网络问题）。检查网络、代理，或 baseUrl 是否填对。"
         msg.contains("connection") || msg.contains("connect") || cls.contains("Connect") ->

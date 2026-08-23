@@ -49,7 +49,7 @@ class AssistantDetailVM(
     private val _skills = MutableStateFlow<List<SkillMetadata>>(emptyList())
     val skills = _skills.asStateFlow()
 
-    // 池鸳魔改版：AI 技能推荐进行中标志
+    // RikkaHub：AI 技能推荐进行中标志
     private val _skillRecommending = MutableStateFlow(false)
     val skillRecommending = _skillRecommending.asStateFlow()
 
@@ -193,7 +193,7 @@ class AssistantDetailVM(
     }
 
     /**
-     * 池鸳魔改版：AI 技能推荐。
+     * RikkaHub：AI 技能推荐。
      *
      * 把该助手的 system prompt（体现用途）+ 所有可用技能的"名称+描述"喂给快速模型，
      * 让它只回一行逗号分隔的技能名。解析后应用到 enabledSkills，避免用户手动一个个勾、

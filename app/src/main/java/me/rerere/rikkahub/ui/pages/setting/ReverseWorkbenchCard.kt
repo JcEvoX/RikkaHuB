@@ -55,11 +55,11 @@ import java.net.InetSocketAddress
 // 相关 App 包名，用于一键拉起与安装检测
 private const val PKG_MT = "bin.mt.plus"
 private const val PKG_MT_CANARY = "bin.mt.plus.canary"
-private const val PKG_NIEHE = "com.xuanxingnihe" // SOMCP（聚合逆向后端）
+private const val PKG_NIEHE = "com.soreverse.mcp" // SOMCP（聚合逆向后端）
 private const val PKG_PROXYPIN = "com.network.proxy"
 
 /**
- * 池鸳魔改版：逆向工作台卡片。
+ * RikkaHub：逆向工作台卡片。
  *
  * 放在 MCP 设置页顶部。它做三件事：
  * 1. 一键拉起 MT 管理器 / SOMCP（未装则跳应用市场）。
@@ -109,7 +109,7 @@ fun ReverseWorkbenchCard(
     val toaster = LocalToaster.current
     var probing by remember { mutableStateOf(false) }
 
-    // 玄星：一键探测本机端口并自动连接。App 间隔离读不到别人的配置，但可以主动去连本机端口——
+    // 一键探测本机端口并自动连接。App 间隔离读不到别人的配置，但可以主动去连本机端口——
     // 挨个探测各后端的常见端口，哪个通就把对应 MCP 的地址改成那个，实现小白一键连接。
     fun autoProbeAndConnect() {
         if (probing) return
@@ -198,7 +198,7 @@ fun ReverseWorkbenchCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // 玄星：一键探测端口并自动连接（小白福音，不用手填地址）
+            // 一键探测端口并自动连接（小白福音，不用手填地址）
             FilledTonalButton(
                 onClick = { autoProbeAndConnect() },
                 enabled = !probing,
@@ -320,7 +320,7 @@ private fun BackendRow(
 private fun isMtInstalled(context: android.content.Context): Boolean =
     context.isPackageInstalled(PKG_MT) || context.isPackageInstalled(PKG_MT_CANARY)
 
-/** 玄星：探测本机某端口是否有服务在监听（TCP 连一下，300ms 超时，快速）。 */
+/** 探测本机某端口是否有服务在监听（TCP 连一下，300ms 超时，快速）。 */
 private fun isPortOpen(host: String, port: Int): Boolean {
     return runCatching {
         Socket().use { socket ->

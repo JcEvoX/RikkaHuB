@@ -25,7 +25,7 @@ import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.ui.context.LocalNavController
 
 /**
- * 池鸳魔改版 · 主导航外壳
+ * RikkaHub · 主导航外壳
  *
  * 在 NavDisplay 外面包一层 Scaffold，仅在 4 个 tab 根路由
  * (Home / History / Skills / Setting) 显示底部导航栏，

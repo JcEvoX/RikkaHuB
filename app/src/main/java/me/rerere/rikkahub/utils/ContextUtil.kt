@@ -31,14 +31,14 @@ import java.io.OutputStream
 private const val TAG = "ContextUtil"
 
 /**
- * 玄星：是否已获得"全部文件访问"权限（MANAGE_EXTERNAL_STORAGE）。
+ * 是否已获得"全部文件访问"权限（MANAGE_EXTERNAL_STORAGE）。
  * Android 11(R) 以下无此概念，视为已具备。
  */
 fun Context.hasAllFilesAccess(): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
 
 /**
- * 玄星：跳转系统"全部文件访问"授权页（直达本应用）。授权后可读写 /sdcard、/storage 下的文件。
+ * 跳转系统"全部文件访问"授权页（直达本应用）。授权后可读写 /sdcard、/storage 下的文件。
  */
 fun Context.requestAllFilesAccess() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
@@ -61,7 +61,7 @@ fun Context.requestAllFilesAccess() {
 }
 
 /**
- * 玄星：MT 管理器 MCP 分析缓存目录。MT 开包会在 Android/data/<包名>/mcp 下解出大量临时文件，
+ * MT 管理器 MCP 分析缓存目录。MT 开包会在 Android/data/<包名>/mcp 下解出大量临时文件，
  * 分析多了会堆到几个 GB。覆盖 MT 正式版与 canary 版两个包名。
  */
 private val MT_MCP_CACHE_DIRS = listOf(
@@ -69,7 +69,7 @@ private val MT_MCP_CACHE_DIRS = listOf(
     "Android/data/bin.mt.plus.canary/mcp",
 )
 
-/** 玄星：统计 MT 分析缓存占用的字节数（不含无权限/不存在的目录）。 */
+/** 统计 MT 分析缓存占用的字节数（不含无权限/不存在的目录）。 */
 fun getMtMcpCacheSize(): Long {
     val root = Environment.getExternalStorageDirectory() ?: return 0L
     var total = 0L
@@ -83,7 +83,7 @@ fun getMtMcpCacheSize(): Long {
 }
 
 /**
- * 玄星：清理 MT 分析缓存。删除 mcp 目录下的内容（保留 mcp 目录本身）。
+ * 清理 MT 分析缓存。删除 mcp 目录下的内容（保留 mcp 目录本身）。
  * 返回删除释放的字节数（近似，按删除前的占用计）。需先有"全部文件访问"权限。
  */
 fun clearMtMcpCache(): Long {
@@ -102,7 +102,7 @@ fun clearMtMcpCache(): Long {
     return freed
 }
 
-/** 玄星：把字节数格式化成人类可读（B/KB/MB/GB）。 */
+/** 把字节数格式化成人类可读（B/KB/MB/GB）。 */
 fun formatBytes(bytes: Long): String {
     if (bytes <= 0) return "0 B"
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
@@ -142,7 +142,7 @@ fun Context.isPackageInstalled(packageName: String): Boolean = runCatching {
 /**
  * 尝试打开指定包名的应用；若未安装则跳转到应用市场对应详情页（失败再退回网页市场）。
  *
- * 池鸳魔改版：逆向工作台用它来一键拉起 MT 管理器 / SOMCP。
+ * RikkaHub：逆向工作台用它来一键拉起 MT 管理器 / SOMCP。
  *
  * @return 已安装并成功拉起返回 true；未安装（已跳市场或网页）返回 false。
  */

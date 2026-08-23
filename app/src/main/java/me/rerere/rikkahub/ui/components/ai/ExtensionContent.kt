@@ -116,7 +116,7 @@ fun SkillsContent(
     onToggle: (String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onManage: (() -> Unit)? = null,
-    // 池鸳魔改版：批量操作。onSetAll 传入新的启用集合（全开/全关）；
+    // RikkaHub：批量操作。onSetAll 传入新的启用集合（全开/全关）；
     // onAiRecommend 触发"AI 分析需求推荐技能"；aiRecommending 为 true 时显示加载中。
     onSetAll: ((Set<String>) -> Unit)? = null,
     onAiRecommend: (() -> Unit)? = null,

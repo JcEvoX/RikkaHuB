@@ -25,7 +25,7 @@ import me.rerere.rikkahub.ui.theme.CustomColors
 import kotlin.uuid.Uuid
 
 /**
- * 池鸳魔改版：MCP 健康看板（精简版，内嵌在 MCP 设置页顶部）。
+ * RikkaHub：MCP 健康看板（精简版，内嵌在 MCP 设置页顶部）。
  *
  * 汇总所有已启用 MCP 服务器的实时连接状态，一眼看出：几个在线、几个连接中、几个出错。
  * 逆向时最烦"AI 说工具用不了却不知道是哪个后端掉了"，这个横幅直接给出全局健康度。

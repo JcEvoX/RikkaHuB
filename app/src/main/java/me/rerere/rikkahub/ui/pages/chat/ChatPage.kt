@@ -167,7 +167,7 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                             filesManager.createChatFilesByContents(listOf(srcUri)).firstOrNull()
                                 ?.let { add(UIMessagePart.Audio(url = it.toString())) }
                         }
-                        // 玄星：分享进来的逆向二进制（APK/SO/DEX 等）也接住，复制到公共目录供外部 MCP 读取。
+                        // 分享进来的逆向二进制（APK/SO/DEX 等）也接住，复制到公共目录供外部 MCP 读取。
                         isReverseBinaryFile(fileName, mime) -> {
                             filesManager.createReverseFilesByContents(listOf(srcUri)).firstOrNull()
                                 ?.let { add(UIMessagePart.Document(url = it.toString(), fileName = fileName, mime = mime)) }
@@ -649,7 +649,7 @@ private fun ChatFilesPickerSheet(
                     val fileName = filesManager.getFileNameFromUri(uri) ?: "file"
                     val mime = filesManager.getFileMimeType(uri) ?: "text/plain"
                     if (isAllowedFileType(fileName, mime)) {
-                        // 玄星：逆向二进制文件（APK/SO/DEX 等）复制到公共目录，方便外部 MCP（MT/SOMCP）读取；
+                        // 逆向二进制文件（APK/SO/DEX 等）复制到公共目录，方便外部 MCP（MT/SOMCP）读取；
                         // 普通文档仍存私有 upload 目录。扩展名+MIME 双判断，防文件名无后缀时误判。
                         val isReverse = isReverseBinaryFile(fileName, mime)
                         val localUri = if (isReverse) {

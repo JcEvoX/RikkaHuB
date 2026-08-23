@@ -22,13 +22,13 @@ val DEFAULT_AUTO_MODEL_ID = Uuid.parse("b7055fb4-39f9-4042-a88a-0d80ed76cf08")
 val DEFAULT_PROVIDERS = listOf(
     ProviderSetting.OpenAI(
         id = Uuid.parse("f1e2d3c4-b5a6-4987-8f1e-2d3c4b5a6f10"),
-        name = "玄星",
+        name = "RikkaHub",
         baseUrl = "https://api.openai.com/v1",
         apiKey = "",
         enabled = true,
         builtIn = true,
     ),
-    // 玄星：原官方 RikkaHub 免费供应商已禁用（那是付费/限流服务，新用户误用会报 402/429）。
+    // 原官方 RikkaHub 免费供应商已禁用（那是付费/限流服务，新用户误用会报 402/429）。
     // 保留此条目仅因 Auto 模型 ID 被默认模型引用，不删除以免空引用；默认禁用、名称中性化。
     ProviderSetting.OpenAI(
         id = Uuid.parse("a8d2d463-e8c0-41f2-b89e-f5eb8e716cce"),

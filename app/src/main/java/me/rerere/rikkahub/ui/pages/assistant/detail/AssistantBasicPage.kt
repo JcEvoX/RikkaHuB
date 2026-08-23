@@ -387,7 +387,7 @@ internal fun AssistantBasicContent(
                 }
             )
             HorizontalDivider()
-            // 玄星：Claude 1M 超长上下文开关
+            // Claude 1M 超长上下文开关
             FormItem(
                 modifier = Modifier.padding(8.dp),
                 label = {

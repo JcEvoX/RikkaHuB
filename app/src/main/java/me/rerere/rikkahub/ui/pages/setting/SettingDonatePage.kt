@@ -95,7 +95,7 @@ private fun DonateMethodsCardGroup() {
         modifier = Modifier.fillMaxWidth(),
         title = { Text(stringResource(R.string.donate_page_donation_methods)) },
     ) {
-        // 玄星：已移除原作者（reovo）的 Kofi / 爱发电 捐赠入口。
+        // 已移除原作者（reovo）的 Kofi / 爱发电 捐赠入口。
     }
 }
 

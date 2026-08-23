@@ -48,7 +48,7 @@ data class Assistant(
     val enableTimeReminder: Boolean = false,            // 时间间隔提醒注入
     val allowConversationSystemPrompt: Boolean = false, // 允许对话单独重写 system prompt
     val allowConversationPromptInjection: Boolean = false, // 允许对话单独绑定提示词注入
-    val enable1MContext: Boolean = false, // 玄星：开启 Claude 1M 超长上下文（自动加 anthropic-beta 头，仅支持的模型/中转才开）
+    val enable1MContext: Boolean = false, // 开启 Claude 1M 超长上下文（自动加 anthropic-beta 头，仅支持的模型/中转才开）
 )
 
 @Serializable

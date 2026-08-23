@@ -226,7 +226,7 @@ private fun AssistantLocalToolContent(
                     )
                 }
             )
-            // 玄星：内置网页抓取（不需外部 MCP）
+            // 内置网页抓取（不需外部 MCP）
             item(
                 headlineContent = {
                     Text("网页抓取")

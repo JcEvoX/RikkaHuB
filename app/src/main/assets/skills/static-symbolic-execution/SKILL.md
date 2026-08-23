@@ -43,7 +43,7 @@ if simgr.found:
 - native 定位：先用 ida-decompile/rev-symbol 找到目标函数地址再符号执行
 
 ## 五、手机端现实
-符号执行工具（angr/miasm/triton）跑在 **PC**（手机装不了）。玄星里 AI 的角色：
+符号执行工具（angr/miasm/triton）跑在 **PC**（手机装不了）。RikkaHub里 AI 的角色：
 - 帮你写/改 angr 脚本、定位 find/avoid 地址、诊断路径爆炸
 - 解读符号执行结果、把求解出的输入翻译成人话
 - 实际运行在你电脑上，AI 指导

@@ -14,7 +14,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * 玄星：内置网页抓取工具（不需外部 MCP）。抓取给定 URL 的正文，去除 HTML 标签返回纯文本。
+ * 内置网页抓取工具（不需外部 MCP）。抓取给定 URL 的正文，去除 HTML 标签返回纯文本。
  * 用于让 AI 查资料、读文档页、看接口说明等。
  */
 internal fun buildWebFetchTool(): Tool = Tool(

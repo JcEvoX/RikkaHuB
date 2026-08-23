@@ -91,7 +91,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
 
-    // 池鸳魔改版：移除每 50 次启动弹一次的赞助提醒弹窗。
+    // RikkaHub：移除每 50 次启动弹一次的赞助提醒弹窗。
 
     Scaffold(
         topBar = {
@@ -164,12 +164,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         supportingContent = { Text(stringResource(R.string.setting_page_preferences_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_preferences)) },
                     )
-                    // 玄星：高级功能入口（消息保活/悬浮窗/持续工作/自动压缩/全文件访问）
+                    // 高级功能入口（消息保活/悬浮窗/持续工作/自动压缩/全文件访问）
                     item(
                         onClick = { navController.navigate(Screen.SettingAdvanced) },
                         leadingContent = { Icon(HugeIcons.Sparkles, null) },
                         supportingContent = { Text("消息保活 · AI悬浮窗 · 持续工作 · 自动压缩 · 全文件访问") },
-                        headlineContent = { Text("玄星高级功能") },
+                        headlineContent = { Text("高级功能") },
                     )
                     item(
                         onClick = { navController.navigate(Screen.Assistant) },
@@ -301,7 +301,7 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     )
                     item(
                         onClick = {
-                            // 玄星 QQ 交流群（群号 1085272250）：先尝试唤起手Q加群，失败则打开分享链接
+                            // QQ 交流群（群号 1085272250）：先尝试唤起手Q加群，失败则打开分享链接
                             if (!context.joinQQGroup(XUANXING_QQ_GROUP_KEY)) {
                                 context.openUrl(XUANXING_QQ_GROUP_URL)
                             }
@@ -361,7 +361,7 @@ private fun ProviderConfigWarningCard(navController: Navigator) {
     }
 }
 
-// 玄星 QQ 交流群 1085272250
+// QQ 交流群 1085272250
 // KEY：手Q "mqqopensdkapi" 加群协议用的 authKey（来自加群分享链接）
 private const val XUANXING_QQ_GROUP_KEY =
     "kMISrTZBQ4UVubUbdp7pAvbO4vCPIRFqccDJRzRcYLjhjwRu9NQlbsU+TF5VxxV+"

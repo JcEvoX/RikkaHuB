@@ -33,7 +33,7 @@ sealed class LocalToolOption {
     @SerialName("calendar")
     data object Calendar : LocalToolOption()
 
-    // 玄星：内置网页抓取（不需外部 MCP）
+    // 内置网页抓取（不需外部 MCP）
     @Serializable
     @SerialName("web_fetch")
     data object WebFetch : LocalToolOption()

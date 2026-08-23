@@ -18,9 +18,9 @@ import com.petterp.floatingx.assist.FxScopeType
 import me.rerere.rikkahub.R
 
 /**
- * 玄星：AI 生成中系统级悬浮球。
+ * AI 生成中系统级悬浮球。
  *
- * 与旧的应用内悬浮窗（AiGeneratingFloatingWindow，仅玄星前台可见）不同，
+ * 与旧的应用内悬浮窗（AiGeneratingFloatingWindow，仅RikkaHub前台可见）不同，
  * 这里用系统级悬浮窗（SYSTEM_ALERT_WINDOW），可在切后台、其他 App、桌面全程显示。
  * 由 ChatKeepAliveService（前台保活服务）在生成开始时 show、结束时 dismiss，
  * 生命周期脱离 Activity，滑到后台也不消失。
@@ -65,12 +65,12 @@ object AiFloatingBall {
         }
     }
 
-    /** 代码构建"⟳ 玄星生成中"胶囊视图（不依赖 Compose，避免 Service 里 ComposeView 的 lifecycle 坑）。 */
+    /** 代码构建"⟳ 生成中"胶囊视图（不依赖 Compose，避免 Service 里 ComposeView 的 lifecycle 坑）。 */
     private fun buildBallView(context: Context): View {
         val density = context.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
-        val accent = Color.parseColor("#7C3AED")   // 玄星紫
+        val accent = Color.parseColor("#7C3AED")   // 主题紫
         val accentLight = Color.parseColor("#A78BFA")
 
         val row = LinearLayout(context).apply {
@@ -98,7 +98,7 @@ object AiFloatingBall {
         }
 
         val text = TextView(context).apply {
-            text = "玄星生成中"
+            text = "生成中"
             setTextColor(Color.WHITE)
             textSize = 14f
         }

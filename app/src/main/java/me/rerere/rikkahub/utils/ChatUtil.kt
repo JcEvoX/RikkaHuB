@@ -18,7 +18,7 @@ fun navigateToChatPage(
     nodeId: Uuid? = null,
 ) {
     Log.i(TAG, "navigateToChatPage: navigate to $chatId")
-    // 池鸳魔改：改为 push（而非清栈），使聊天页叠在当前 tab 之上，
+    // RikkaHub：改为 push（而非清栈），使聊天页叠在当前 tab 之上，
     // 返回时回到来源 tab（首页/对话等），配合底部导航栏。
     navigator.navigate(
         Screen.Chat(
@@ -60,7 +60,7 @@ private val ALLOWED_FILE_EXTENSIONS = setOf(
     "proto", "graphql", "gql", "yml", "yaml"
 )
 
-// 玄星：逆向分析用的二进制文件扩展名。这些文件不读文本内容（读了是乱码），
+// 逆向分析用的二进制文件扩展名。这些文件不读文本内容（读了是乱码），
 // 只把 workspace 路径告诉 AI，让它调 MT 管理器 / SOMCP 等 MCP 工具去分析。
 val REVERSE_BINARY_EXTENSIONS = setOf(
     "apk", "aab", "apks", "xapk", "apkm",   // 安卓应用包
@@ -70,7 +70,7 @@ val REVERSE_BINARY_EXTENSIONS = setOf(
     "class", "smali"
 )
 
-// 玄星：逆向二进制文件常见的 MIME 类型。很多文件管理器给 APK/SO/DEX 返回的
+// 逆向二进制文件常见的 MIME 类型。很多文件管理器给 APK/SO/DEX 返回的
 // displayName 不带扩展名（只能靠 MIME 判断），或返回通用的 octet-stream，
 // 这里按 MIME 兜底放行，避免"能选中却报不支持"的坑。
 val REVERSE_BINARY_MIME_TYPES = setOf(
@@ -83,13 +83,13 @@ val REVERSE_BINARY_MIME_TYPES = setOf(
     "application/octet-stream",                // so/dex/bin 常见通用类型
 )
 
-/** 玄星：是否为逆向二进制文件（按扩展名判断）。 */
+/** 是否为逆向二进制文件（按扩展名判断）。 */
 fun isReverseBinaryFile(fileName: String): Boolean {
     val extension = fileName.substringAfterLast('.', "").lowercase()
     return extension in REVERSE_BINARY_EXTENSIONS
 }
 
-/** 玄星：是否为逆向二进制文件（扩展名 + MIME 双判断）。文件名无扩展名时靠 MIME 兜底，
+/** 是否为逆向二进制文件（扩展名 + MIME 双判断）。文件名无扩展名时靠 MIME 兜底，
  *  确保这类文件被复制到公共目录供外部 MCP（MT/SOMCP）读取，而不是塞进私有目录。 */
 fun isReverseBinaryFile(fileName: String, mime: String): Boolean {
     if (isReverseBinaryFile(fileName)) return true

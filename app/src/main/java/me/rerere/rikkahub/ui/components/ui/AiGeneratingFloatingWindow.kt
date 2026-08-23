@@ -23,8 +23,8 @@ import me.rerere.rikkahub.service.ChatService
 import org.koin.compose.koinInject
 
 /**
- * 玄星：AI 生成悬浮球。
- * 后台/任意页面只要有会话正在生成，就在屏幕角落显示一个玄星图标悬浮球 + 转圈，
+ * AI 生成悬浮球。
+ * 后台/任意页面只要有会话正在生成，就在屏幕角落显示一个应用图标悬浮球 + 转圈，
  * 让用户知道 AI 还在干活（尤其配合消息保活后台生成）。应用内悬浮，无需系统权限。
  * 由 Settings.enableAiFloatingWindow 开关控制。
  */
@@ -67,7 +67,7 @@ fun AiGeneratingFloatingWindow() {
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    text = "玄星生成中",
+                    text = "生成中",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,

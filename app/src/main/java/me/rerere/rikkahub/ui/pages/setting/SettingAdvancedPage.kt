@@ -40,7 +40,7 @@ import me.rerere.rikkahub.utils.requestAllFilesAccess
 import org.koin.androidx.compose.koinViewModel
 
 /**
- * 玄星：高级功能设置页——集中放二改新增的开关。
+ * 高级功能设置页——集中放二改新增的开关。
  */
 @Composable
 fun SettingAdvancedPage(vm: SettingVM = koinViewModel()) {
@@ -51,7 +51,7 @@ fun SettingAdvancedPage(vm: SettingVM = koinViewModel()) {
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    // 玄星：MT 分析缓存占用与清理确认
+    // MT 分析缓存占用与清理确认
     var mtCacheSize by remember { mutableStateOf(-1L) }
     var showClearConfirm by remember { mutableStateOf(false) }
     // 进页面时异步统计一次占用
@@ -93,7 +93,7 @@ fun SettingAdvancedPage(vm: SettingVM = koinViewModel()) {
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("玄星高级功能") },
+                title = { Text("高级功能") },
                 navigationIcon = { BackButton() },
                 scrollBehavior = scrollBehavior,
                 colors = CustomColors.topBarColors

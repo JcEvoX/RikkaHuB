@@ -251,7 +251,7 @@ object ScrapeWebToolUI : ToolUIRenderer {
 }
 
 /**
- * 玄星：内置网页抓取工具的展示（中文标题 + 显示 URL）
+ * 内置网页抓取工具的展示（中文标题 + 显示 URL）
  */
 object WebFetchToolUI : ToolUIRenderer {
     override val toolName: String = "web_fetch"
