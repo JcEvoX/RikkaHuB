@@ -9,6 +9,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
     alias(libs.plugins.baselineprofile)
 }
 
@@ -20,8 +22,8 @@ android {
         applicationId = "me.rerere.rikkahub"
         minSdk = 26
         targetSdk = 37
-        versionCode = 177
-        versionName = "2.4.10"
+        versionCode = 178
+        versionName = "2.4.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -69,25 +71,10 @@ android {
 
     buildTypes {
         release {
-            // 池鸳魔改版：开源免费分发，关闭 R8 混淆/资源压缩，避免混淆规则翻车，
-            // 也方便他人阅读/二次修改。体积仍比 debug 小（release 本身不带调试信息）。
-            //
-            // 签名策略：若 local.properties 里配了 release keystore（storeFile 不为 null）就用它；
-            // 否则回退到 debug 签名，保证不配 keystore 也能出可直接安装的 release 包（自用足够，debug 签名不影响体积）。
-            val releaseSigning = signingConfigs.getByName("release")
-            signingConfig = if (releaseSigning.storeFile != null) {
-                releaseSigning
-            } else {
-                signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            optimization {
+                enable = true
             }
-            // 玄星：开启 R8 代码混淆（类名/方法名混淆成 a.b.c，增加反编译难度）。
-            // 资源压缩暂关（isShrinkResources），避免误删 assets/skills 里的技能文件。
-            isMinifyEnabled = true
-            isShrinkResources = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
             buildConfigField("String", "VERSION_NAME", "\"${android.defaultConfig.versionName}\"")
             buildConfigField("String", "VERSION_CODE", "\"${android.defaultConfig.versionCode}\"")
         }
@@ -179,6 +166,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.material3.adaptive.navigation3)
 
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
+
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 
@@ -189,7 +181,7 @@ dependencies {
     // Haze (background blur)
     implementation(libs.haze)
     implementation(libs.haze.blur)
-    implementation(libs.haze.blur.materials)
+    implementation(libs.haze.blur.material3)
 
     // koin
     implementation(platform(libs.koin.bom))

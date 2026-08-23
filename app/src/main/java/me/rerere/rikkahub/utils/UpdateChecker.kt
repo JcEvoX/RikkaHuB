@@ -7,37 +7,57 @@ import android.widget.Toast
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import me.rerere.common.http.await
+import me.rerere.rikkahub.AppScope
 import me.rerere.rikkahub.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
 private const val API_URL = "https://updates.rikka-ai.com/"
 
-class UpdateChecker(private val client: OkHttpClient) {
+class UpdateChecker(
+    private val client: OkHttpClient,
+    appScope: AppScope,
+) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * 池鸳魔改版：禁用在线更新检测。
-     *
-     * 原版会请求官方 updates 服务并弹出"发现新版本"卡片，用户点了会下载并覆盖安装官方包，
-     * 从而把魔改版（内置技能、逆向工作台等）整个覆盖掉。这里直接返回一个"当前即最新"的
-     * 结果，UpdateCard 里 `latest > current` 恒为 false，卡片永不出现，也不发任何网络请求。
-     */
-    fun checkUpdate(): Flow<UiState<UpdateInfo>> = flow<UiState<UpdateInfo>> {
+    val updateState: StateFlow<UiState<UpdateInfo>> = checkUpdate().stateIn(
+        scope = appScope,
+        started = SharingStarted.Lazily,
+        initialValue = UiState.Loading,
+    )
+
+    private fun checkUpdate(): Flow<UiState<UpdateInfo>> = flow {
+        emit(UiState.Loading)
         emit(
             UiState.Success(
-                data = UpdateInfo(
-                    version = BuildConfig.VERSION_NAME,
-                    publishedAt = "",
-                    changelog = "",
-                    downloads = emptyList(),
-                )
+                data = try {
+                    val response = client.newCall(
+                        Request.Builder()
+                            .url(API_URL)
+                            .get()
+                            .addHeader(
+                                "User-Agent",
+                                "RikkaHub ${BuildConfig.VERSION_NAME} #${BuildConfig.VERSION_CODE}"
+                            )
+                            .build()
+                    ).await()
+                    if (response.isSuccessful) {
+                        json.decodeFromString<UpdateInfo>(response.body.string())
+                    } else {
+                        throw Exception("Failed to fetch update info")
+                    }
+                } catch (e: Exception) {
+                    throw Exception("Failed to fetch update info", e)
+                }
             )
         )
     }.catch {

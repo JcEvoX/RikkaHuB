@@ -469,8 +469,6 @@
   <string name="placeholder_battery_level">Battery Level</string>
   <string name="placeholder_char">Assistant Name</string>
   <string name="placeholder_current_date">Date</string>
-  <string name="placeholder_current_datetime">Date and Time</string>
-  <string name="placeholder_current_time">Time</string>
   <string name="placeholder_device_info">Device Info</string>
   <string name="placeholder_locale">Locale</string>
   <string name="placeholder_model_id">Model ID</string>
@@ -543,6 +541,7 @@
   <string name="reasoning_light_desc">The model will use a small amount of reasoning to answer questions.</string>
   <string name="reasoning_medium">Medium</string>
   <string name="reasoning_medium_desc">The model will use more reasoning to answer questions.</string>
+  <string name="reasoning_max">Max</string>
   <string name="reasoning_off">Off</string>
   <string name="reasoning_off_desc">Turn off reasoning functionality, the model will directly answer questions.</string>
   <string name="reasoning_picker_hint">Not all models support depth adjustment. Refer to the model and provider documentation.</string>
@@ -600,11 +599,17 @@
   <string name="search_page_title">Search Messages</string>
   <string name="search_page_untitled">Untitled</string>
   <string name="search_picker_title">Search Settings</string>
+  <string name="search_picker_local_title">Local Search</string>
+  <string name="search_picker_local_description">Connect to various third-party search providers</string>
+  <string name="search_picker_model_title">Model Search</string>
+  <string name="search_picker_model_description">Cloud search built into the model provider</string>
+  <string name="search_picker_select_provider">Select search provider</string>
+  <string name="search_picker_turn_off">Turn off search</string>
   <string name="select_and_copy">Select and Copy</string>
   <string name="send">Send</string>
   <string name="setting_asr_configure_api_key">API Key</string>
   <string name="setting_asr_configure_dashscope_api_key_desc">DashScope API key</string>
-  <string name="setting_asr_configure_dashscope_vad_desc">Server VAD sensitivity, set 0 to disable VAD</string>
+  <string name="setting_asr_configure_dashscope_vad_desc">Server VAD detection threshold. Recommended: 0.0; range: -1 to 1.</string>
   <string name="setting_asr_configure_dashscope_websocket_desc">DashScope realtime websocket endpoint</string>
   <string name="setting_asr_configure_language">Language</string>
   <string name="setting_asr_configure_language_code_desc">Optional language code, e.g. zh-CN, en-US, ja-JP</string>
@@ -840,6 +845,13 @@
   <string name="setting_page_preferences_general_desc">Interaction behavior, scrolling, input settings</string>
   <string name="setting_page_preferences_ui">UI Preferences</string>
   <string name="setting_page_preferences_ui_desc">Message display, fonts, code blocks</string>
+  <string name="setting_page_preferences_network">Network</string>
+  <string name="setting_page_preferences_network_desc">User-Agent and network request settings</string>
+  <string name="setting_page_preferences_network_user_agent">User-Agent</string>
+  <string name="setting_page_preferences_network_user_agent_desc">Leave blank to use %1$s</string>
+  <string name="setting_page_preferences_network_proxy">Proxy</string>
+  <string name="setting_page_preferences_network_proxy_desc">Supports HTTP and SOCKS5 proxy URLs. Leave blank to use system settings.</string>
+  <string name="setting_page_preferences_network_proxy_invalid">Enter a valid proxy URL with a host and port.</string>
   <string name="setting_page_documentation">Documentation</string>
   <string name="setting_page_documentation_desc">View app usage instructions and help documentation</string>
   <string name="setting_page_donate">Donate</string>
@@ -901,7 +913,7 @@
   <string name="setting_page_web_server">Web Server</string>
   <string name="setting_page_web_server_address_note">Address Notes</string>
   <string name="setting_page_web_server_address_note_desc">LAN Address: Uses device WiFi IP, accessible to other devices on the same network. Unavailable on mobile data.\nLocal Address: Uses localhost, accessible on this device only.\nmDNS Address: Uses .local hostname, accessible by name from other devices on the same network without knowing the IP.</string>
-  <string name="setting_page_web_server_desc">Allow you access XuanXing via Web</string>
+  <string name="setting_page_web_server_desc">Allow you access RikkaHub via Web</string>
   <string name="setting_page_web_server_error">Error</string>
   <string name="setting_page_web_server_jwt_enable">Enable authentication</string>
   <string name="setting_page_web_server_jwt_enable_desc">Require password verification when accessing the web interface</string>
@@ -1005,6 +1017,8 @@
   <string name="setting_tts_page_base_url_description">API base URL endpoint</string>
   <string name="setting_tts_page_base_url_placeholder">https://api.openai.com/v1</string>
   <string name="setting_tts_page_default_name">System TTS</string>
+  <string name="setting_tts_page_default_playback_speed">Default playback speed</string>
+  <string name="setting_tts_page_default_playback_speed_description">Applied locally to every TTS provider without changing its synthesis settings.</string>
   <string name="setting_tts_page_edit_provider">Edit Provider</string>
   <string name="setting_tts_page_emotion">Emotion</string>
   <string name="setting_tts_page_emotion_description">Emotion style for speech synthesis</string>
@@ -1280,4 +1294,19 @@
   <string name="chat_page_folder_add">New</string>
   <string name="chat_page_delete_folder_confirm">Delete folder "%1$s"? Conversations inside will not be deleted, only removed from the folder.</string>
   <string name="chat_page_delete_folder_generating">Some conversations in this folder are still generating. Please stop them before deleting.</string>
+  <string name="assistant_page_context_message_limit">Context Message Limit</string>
+  <string name="assistant_page_context_message_limit_desc">Caps how many recent messages are sent to the model. When the limit is exceeded, the context is trimmed down to about half in one step instead of dropping one message per turn, so the request prefix stays stable and prompt caching keeps working for many turns.</string>
+  <string name="assistant_page_context_message_limit_count">Context message limit: %d</string>
+  <string name="assistant_page_context_message_limit_unlimited">Unlimited context messages</string>
+  <string name="assistant_page_context_message_limit_hint">Enter 0 for unlimited, or a value of at least %d</string>
+  <string name="assistant_page_context_message_limit_too_small">The context message limit cannot be less than %1$d. It has been reset to %1$d.</string>
+  <string name="assistant_page_context_message_limit_warning">Limiting context invalidates the prompt cache each time the context is trimmed. A larger limit trims less often; unlimited never trims and keeps the cache fully intact.</string>
+  <string name="setting_update_reminder_enabled">Update reminders are enabled</string>
+  <string name="setting_update_reminder_paused_until">Paused until %1$s</string>
+  <string name="setting_update_reminder_pause_title">Pause update reminders</string>
+  <string name="setting_update_reminder_pause_description">Choose how long to pause update reminders. They will resume automatically.</string>
+  <string name="setting_update_reminder_pause_days">%1$d days</string>
+  <string name="setting_update_reminder_resume_now">Resume now</string>
+  <string name="backup_page_import_overwrite_confirm">Importing a backup will overwrite app data. Continue?</string>
 </resources>
+
