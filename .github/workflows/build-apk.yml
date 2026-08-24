@@ -1,9 +1,21 @@
 name: Build Test APK
 
-# 自用测试打包：手动点击即可触发，产出可直接安装的 debug APK。
+# 自用测试打包：手动点击即可触发，也会在 push/PR 时自动构建；产出可直接安装的 debug APK。
 # 已移除 Firebase，无需 google-services.json；debug 构建用自动签名，无需任何密钥。
 on:
-  workflow_dispatch:   # 在 GitHub 网页 Actions 页面手动点击 "Run workflow" 触发
+  push:
+    branches: [master, main, trae/**]  # push 到 master/main 或本仓库工作分支自动出包
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [master, main]           # 任何合入 master/main 的 PR 自动构建
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  workflow_dispatch:   # 仍保留在 GitHub 网页 Actions 页面手动点击 "Run workflow" 触发
 
 jobs:
   build:
