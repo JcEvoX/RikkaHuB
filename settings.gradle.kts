@@ -2,17 +2,12 @@ pluginManagement {
     includeBuild("build-logic")
 
     repositories {
-        // 国内镜像优先，加速插件下载
-        maven("https://maven.aliyun.com/repository/gradle-plugin")
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
-        mavenCentral()
+        // Google 官方 Maven 优先（AGP 及 com.android.* 系列插件均发布于此，最可靠）
+        // 注意：不使用阿里云 gradle-plugin 镜像 —— 它未同步 com.android.test 等插件。
+        // 不使用 content filter —— CI 上曾因 filter 把 com.android.test 排除导致插件解析失败。
+        google()
         gradlePluginPortal()
+        mavenCentral()
         maven("https://repo.itextsupport.com/android")
     }
     resolutionStrategy {
