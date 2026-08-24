@@ -120,18 +120,21 @@ jobs:
             ${{ runner.os }}-gradle-jdk21-
             ${{ runner.os }}-gradle-
 
-      - name: 配置 Android SDK 并接受全部许可
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 11076708
-          packages: >-
-            platforms;android-37
-            build-tools;37.0.0
-            platform-tools
+      - name: 配置 Android SDK（用 runner 预装 SDK，不再下载）
+        # ubuntu-latest 已预装 android-37.0 / build-tools 37.0.0 / platform-tools，
+        # 无需 android-actions/setup-android 额外下载（此前该 action 因 cmdline-tools 版本失效而失败）
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME" 2>&1 | head
+          ls "$ANDROID_HOME/platforms" 2>&1 | head
+          ls "$ANDROID_HOME/build-tools" 2>&1 | head
 
       - name: 接受 SDK 许可（防止 AGP 首次运行提示接受 license）
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          # AGP 通过 ANDROID_HOME 解析；再显式写 local.properties 双保险
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
 
       - name: 确保 gradlew 可执行 + LF 换行
         run: |
