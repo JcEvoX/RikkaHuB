@@ -506,8 +506,7 @@ private fun ModelSettingsForm(
     fun setModelId(id: String) {
         val inputModality = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id)
         val outputModality = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id)
-        // 识别不出能力（中转/自定义模型名）时默认给 TOOL，避免弹“工具不可用”（用户仍可手动取消）。
-        val abilities = ModelRegistry.MODEL_ABILITIES.getData(id).ifEmpty { listOf(ModelAbility.TOOL) }
+        val abilities = ModelRegistry.MODEL_ABILITIES.getData(id)
         onModelChange(
             model.copy(
                 modelId = id,
@@ -698,8 +697,7 @@ private fun AddModelButton(
             onModelSelected = { model ->
                 val inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(model.modelId)
                 val outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(model.modelId)
-                // 识别不出能力时默认给 TOOL，避免中转模型弹“工具不可用”。
-                val abilities = ModelRegistry.MODEL_ABILITIES.getData(model.modelId).ifEmpty { listOf(ModelAbility.TOOL) }
+                val abilities = ModelRegistry.MODEL_ABILITIES.getData(model.modelId)
                 onAddModel(
                     model.copy(
                         inputModalities = inputModalities,
@@ -720,7 +718,7 @@ private fun AddModelButton(
                             model.copy(
                                 inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(model.modelId),
                                 outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(model.modelId),
-                                abilities = ModelRegistry.MODEL_ABILITIES.getData(model.modelId).ifEmpty { listOf(ModelAbility.TOOL) }
+                                abilities = ModelRegistry.MODEL_ABILITIES.getData(model.modelId)
                             )
                         }
                     )
@@ -948,7 +946,7 @@ private fun ModelPicker(
                                             it.copy(
                                                 inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(it.modelId),
                                                 outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(it.modelId),
-                                                abilities = ModelRegistry.MODEL_ABILITIES.getData(it.modelId).ifEmpty { listOf(ModelAbility.TOOL) },
+                                                abilities = ModelRegistry.MODEL_ABILITIES.getData(it.modelId),
                                             )
                                         }
                                         ModelModalityTag(

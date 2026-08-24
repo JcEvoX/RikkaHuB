@@ -80,14 +80,13 @@ import me.rerere.ai.ui.UIMessagePart
 import me.rerere.ai.ui.isEmptyUIMessage
 import me.rerere.ai.util.encodeBase64
 import me.rerere.common.android.appTempFolder
-import me.rerere.highlight.Highlighter
-import me.rerere.highlight.LocalHighlighter
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.components.message.MessagePartBlock
 import me.rerere.rikkahub.ui.components.message.ThinkingStep
+import me.rerere.rikkahub.ui.components.message.ChatMessageServerToolStep
 import me.rerere.rikkahub.ui.components.message.groupMessageParts
 import me.rerere.rikkahub.ui.components.richtext.MarkdownBlock
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
@@ -104,7 +103,6 @@ import me.rerere.rikkahub.utils.getActivity
 import me.rerere.rikkahub.utils.JsonInstantPretty
 import me.rerere.rikkahub.utils.jsonPrimitiveOrNull
 import me.rerere.rikkahub.utils.toLocalString
-import org.koin.compose.koinInject
 import java.io.FileOutputStream
 import java.time.LocalDateTime
 import kotlin.time.Duration.Companion.seconds
@@ -457,12 +455,10 @@ private fun ExportedChatImage(
 ) {
     val navBackStack = remember { mutableStateListOf<NavKey>() }
     val navigator = Navigator(navBackStack)
-    val highlighter = koinInject<Highlighter>()
     val toasterState = rememberToasterState()
     RikkahubTheme {
         CompositionLocalProvider(
             LocalNavController provides navigator,
-            LocalHighlighter provides highlighter,
             LocalToaster provides toasterState
         ) {
             Surface(
@@ -571,6 +567,10 @@ private fun ExportedChatMessage(
                                         ExportedToolStep(
                                             tool = step.tool
                                         )
+                                    }
+
+                                    is ThinkingStep.ServerToolStep -> {
+                                        ChatMessageServerToolStep(tool = step.tool)
                                     }
                                 }
                             }

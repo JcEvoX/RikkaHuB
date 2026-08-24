@@ -10,7 +10,6 @@ import me.rerere.document.DocxParser
 import me.rerere.document.EpubParser
 import me.rerere.document.PdfParser
 import me.rerere.document.PptxParser
-import me.rerere.rikkahub.utils.isReverseBinaryFile
 import java.io.File
 
 object DocumentAsPromptTransformer : InputMessageTransformer {
@@ -25,32 +24,16 @@ object DocumentAsPromptTransformer : InputMessageTransformer {
                         val documents = filterIsInstance<UIMessagePart.Document>()
                         if (documents.isNotEmpty()) {
                             documents.forEach { document ->
+                                val content = readDocumentContent(document)
                                 val path = resolveWorkspacePath(document)
-                                val absPath = runCatching { document.url.toUri().toFile().absolutePath }.getOrNull()
-                                // 逆向二进制文件（APK/SO/DEX 等）不读文本内容（读了是乱码），
-                                // 只把路径交给 AI，让它调 MT 管理器 / SOMCP 等 MCP 工具分析。
-                                val prompt = if (isReverseBinaryFile(document.fileName)) {
-                                    val pathHint = path ?: absPath ?: document.url
-                                    """
-                                      用户上传了一个逆向分析用的二进制文件，请勿尝试把它当文本读取。
-                                      <ReverseFile name="${document.fileName}" mime="${document.mime}" path="$pathHint" />
-                                      请根据文件类型主动调用对应 MCP 工具分析它：
-                                      - .apk/.aab/.xapk 等 → 用 MT 管理器（mt_apk_open，参数 path 用上面的路径；纯分析用 temporary=true，完成后 mt_apk_close）。
-                                      - .so/.dylib/.a 等 native 库 → 用 SOMCP（so_open，参数用上面的路径）。
-                                      - .dex/.jar/.class/.smali → 视情况用 MT 管理器或反编译相关技能。
-                                      先说明你打算怎么分析，再开始调用工具。
-                                      """.trimIndent()
-                                } else {
-                                    val content = readDocumentContent(document)
-                                    val pathAttr = path?.let { " path=\"$it\"" } ?: ""
-                                    """
-                                      <UploadFile name="${document.fileName}"$pathAttr>
-                                      ```
-                                      $content
-                                      ```
-                                      </UploadFile>
-                                      """.trimMargin()
-                                }
+                                val pathAttr = path?.let { " path=\"$it\"" } ?: ""
+                                val prompt = """
+                                  <UploadFile name="${document.fileName}"$pathAttr>
+                                  ```
+                                  $content
+                                  ```
+                                  </UploadFile>
+                                  """.trimMargin()
                                 add(0, UIMessagePart.Text(prompt))
                             }
                         }

@@ -1,9 +1,9 @@
 pluginManagement {
+    includeBuild("build-logic")
+
     repositories {
         // 国内镜像优先，加速插件下载
         maven("https://maven.aliyun.com/repository/gradle-plugin")
-        maven("https://maven.aliyun.com/repository/google")
-        maven("https://maven.aliyun.com/repository/public")
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -29,10 +29,9 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        // 国内镜像优先，加速依赖下载（原始仓库作为回退保留在后面）
+        // 国内镜像优先，加速依赖下载（官方仓库作为回退保留在后面）
         maven("https://maven.aliyun.com/repository/google")
         maven("https://maven.aliyun.com/repository/public")
-        maven("https://maven.aliyun.com/repository/gradle-plugin")
         google()
         mavenCentral()
         maven("https://jitpack.io")

@@ -4,15 +4,10 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import java.io.IOException
-import java.net.SocketTimeoutException
-import java.net.ConnectException
-import java.net.UnknownHostException
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
@@ -23,7 +18,6 @@ import kotlinx.serialization.json.put
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.core.ReasoningLevel
 import me.rerere.ai.core.Tool
-import me.rerere.ai.core.merge
 import me.rerere.ai.provider.CustomBody
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.Provider
@@ -34,7 +28,9 @@ import me.rerere.ai.registry.ModelRegistry
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.ai.ui.ToolApprovalState
-import me.rerere.ai.ui.handleMessageChunk
+import me.rerere.ai.ui.StreamChunkHandler
+import me.rerere.ai.ui.handleTextGenerationResult
+import me.rerere.ai.ui.limitContext
 import me.rerere.rikkahub.data.ai.transformers.InputMessageTransformer
 import me.rerere.rikkahub.data.ai.transformers.MessageTransformer
 import me.rerere.rikkahub.data.ai.transformers.OutputMessageTransformer
@@ -57,9 +53,6 @@ import kotlin.uuid.Uuid
 
 private const val TAG = "GenerationHandler"
 private const val MAX_TOOL_OUTPUT_CHARS = 32 * 1024
-// 对话生成遇到可恢复错误（网络/限流/5xx）时的自动重试次数与退避基数。
-private const val MAX_GENERATION_RETRIES = 3
-private const val GENERATION_RETRY_BASE_DELAY_MS = 1500L
 private const val TOOL_OUTPUT_PREVIEW_CHARS = 4 * 1024
 
 @Serializable
@@ -392,7 +385,7 @@ class GenerationHandler(
                 }
             }
             if (system.isNotBlank()) add(UIMessage.system(prompt = system))
-            addAll(messages)
+            addAll(messages.limitContext(assistant.contextMessageLimit))
         }.transforms(
             transformers = transformers,
             context = context,
@@ -416,10 +409,6 @@ class GenerationHandler(
             customHeaders = buildList {
                 addAll(assistant.customHeaders)
                 addAll(model.customHeaders)
-                // 助手开启 1M 上下文时，自动加 Claude 1M beta 头（该助手所有模型通用，不支持则自行关闭）。
-                if (assistant.enable1MContext) {
-                    add(me.rerere.ai.provider.CustomHeader("anthropic-beta", "context-1m-2025-08-07"))
-                }
             },
             customBody = buildList {
                 addAll(assistant.customBodies)
@@ -427,102 +416,24 @@ class GenerationHandler(
             }
         )
         if (stream) {
-            // 流式请求带自动重试。仅在"尚未产出任何 chunk"时对可恢复错误（网络抖动/超时/限流/5xx）
-            // 重试；一旦开始输出就不再重试，避免内容重复。
-            var attempt = 0
-            while (true) {
-                var producedChunk = false
-                try {
-                    providerImpl.streamText(
-                        providerSetting = provider,
-                        messages = internalMessages,
-                        params = params
-                    ).collect {
-                        producedChunk = true
-                        messages = messages.handleMessageChunk(chunk = it, model = model)
-                        it.usage?.let { usage ->
-                            messages = messages.mapIndexed { index, message ->
-                                if (index == messages.lastIndex) {
-                                    message.copy(usage = message.usage.merge(usage))
-                                } else {
-                                    message
-                                }
-                            }
-                        }
-                        onUpdateMessages(messages)
-                    }
-                    break // 正常完成
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    if (producedChunk || !isRecoverableError(e) || attempt >= MAX_GENERATION_RETRIES) {
-                        throw e
-                    }
-                    attempt++
-                    val delayMs = GENERATION_RETRY_BASE_DELAY_MS * (1L shl (attempt - 1).coerceAtMost(4))
-                    Log.w(TAG, "streamText recoverable error, retry $attempt/$MAX_GENERATION_RETRIES after ${delayMs}ms: ${e.message}")
-                    processingStatus.value = "连接出错，正在重试（$attempt/$MAX_GENERATION_RETRIES）…"
-                    delay(delayMs)
-                }
+            val streamChunkHandler = StreamChunkHandler(model)
+            providerImpl.streamText(
+                providerSetting = provider,
+                messages = internalMessages,
+                params = params
+            ).collect {
+                messages = streamChunkHandler.handle(messages, it)
+                onUpdateMessages(messages)
             }
         } else {
-            var attempt = 0
-            val chunk = run {
-                while (true) {
-                    try {
-                        return@run providerImpl.generateText(
-                            providerSetting = provider,
-                            messages = internalMessages,
-                            params = params,
-                        )
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        if (!isRecoverableError(e) || attempt >= MAX_GENERATION_RETRIES) throw e
-                        attempt++
-                        val delayMs = GENERATION_RETRY_BASE_DELAY_MS * (1L shl (attempt - 1).coerceAtMost(4))
-                        Log.w(TAG, "generateText recoverable error, retry $attempt/$MAX_GENERATION_RETRIES after ${delayMs}ms: ${e.message}")
-                        processingStatus.value = "连接出错，正在重试（$attempt/$MAX_GENERATION_RETRIES）…"
-                        delay(delayMs)
-                    }
-                }
-                @Suppress("UNREACHABLE_CODE")
-                error("unreachable")
-            }
-            messages = messages.handleMessageChunk(chunk = chunk, model = model)
-            chunk.usage?.let { usage ->
-                messages = messages.mapIndexed { index, message ->
-                    if (index == messages.lastIndex) {
-                        message.copy(
-                            usage = message.usage.merge(usage)
-                        )
-                    } else {
-                        message
-                    }
-                }
-            }
+            val result = providerImpl.generateText(
+                providerSetting = provider,
+                messages = internalMessages,
+                params = params,
+            )
+            messages = messages.handleTextGenerationResult(result = result, model = model)
             onUpdateMessages(messages)
         }
-    }
-
-    /**
-     * 判断错误是否可恢复（值得自动重试）。
-     * 可恢复：网络超时/连接失败/DNS/IO 抖动、HTTP 429(限流)/500/502/503/504。
-     * 不可恢复：认证失败(401/403)、参数错误(400)、内容被拦截(flagged)等——重试也没用，直接报错。
-     */
-    private fun isRecoverableError(e: Throwable): Boolean {
-        if (e is SocketTimeoutException || e is ConnectException || e is UnknownHostException) return true
-        if (e is IOException) return true
-        val msg = (e.message ?: "").lowercase()
-        // 明确不可恢复的信号
-        if (msg.contains("flagged") || msg.contains("unauthorized") || msg.contains("invalid api key") ||
-            msg.contains("401") || msg.contains("403") || msg.contains("400")
-        ) return false
-        // 可恢复的 HTTP 状态/网络关键词
-        return msg.contains("429") || msg.contains("500") || msg.contains("502") ||
-            msg.contains("503") || msg.contains("504") || msg.contains("timeout") ||
-            msg.contains("timed out") || msg.contains("connection") || msg.contains("reset") ||
-            msg.contains("overloaded") || msg.contains("rate limit")
     }
 
     private fun maybeTruncateToolOutput(
@@ -581,6 +492,7 @@ class GenerationHandler(
 
             var messages = listOf(UIMessage.user(prompt))
             var translatedText = ""
+            val streamChunkHandler = StreamChunkHandler(model)
 
             providerHandler.streamText(
                 providerSetting = provider,
@@ -590,7 +502,7 @@ class GenerationHandler(
                     reasoningLevel = ReasoningLevel.fromBudgetTokens(settings.translateThinkingBudget),
                 ),
             ).collect { chunk ->
-                messages = messages.handleMessageChunk(chunk)
+                messages = streamChunkHandler.handle(messages, chunk)
                 translatedText = messages.lastOrNull()?.toText() ?: ""
 
                 if (translatedText.isNotBlank()) {
@@ -601,7 +513,7 @@ class GenerationHandler(
         } else {
             // Use Qwen MT model with special translation options
             val messages = listOf(UIMessage.user(sourceText))
-            val chunk = providerHandler.generateText(
+            val result = providerHandler.generateText(
                 providerSetting = provider,
                 messages = messages,
                 params = TextGenerationParams(
@@ -622,7 +534,7 @@ class GenerationHandler(
                     )
                 ),
             )
-            val translatedText = chunk.choices.firstOrNull()?.message?.toText() ?: ""
+            val translatedText = result.message.toText()
 
             if (translatedText.isNotBlank()) {
                 onStreamUpdate?.invoke(translatedText)

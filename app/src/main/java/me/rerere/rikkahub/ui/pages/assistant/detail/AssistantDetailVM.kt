@@ -13,14 +13,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import me.rerere.ai.core.MessageRole
-import me.rerere.ai.provider.TextGenerationParams
-import me.rerere.ai.ui.UIMessage
-import me.rerere.ai.ui.UIMessagePart
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.SettingsStore
-import me.rerere.rikkahub.data.datastore.findModelById
-import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.db.entity.WorkspaceEntity
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.files.SkillManager
@@ -42,19 +36,11 @@ class AssistantDetailVM(
     private val filesManager: FilesManager,
     private val skillManager: SkillManager,
     private val workspaceRepository: WorkspaceRepository,
-    private val providerManager: me.rerere.ai.provider.ProviderManager,
 ) : ViewModel() {
     private val assistantId = Uuid.parse(id)
 
     private val _skills = MutableStateFlow<List<SkillMetadata>>(emptyList())
     val skills = _skills.asStateFlow()
-
-    // RikkaHub：AI 技能推荐进行中标志
-    private val _skillRecommending = MutableStateFlow(false)
-    val skillRecommending = _skillRecommending.asStateFlow()
-
-    private val _skillRecommendMessage = MutableStateFlow<String?>(null)
-    val skillRecommendMessage = _skillRecommendMessage.asStateFlow()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -190,88 +176,6 @@ class AssistantDetailVM(
                     })
             )
         }
-    }
-
-    /**
-     * RikkaHub：AI 技能推荐。
-     *
-     * 把该助手的 system prompt（体现用途）+ 所有可用技能的"名称+描述"喂给快速模型，
-     * 让它只回一行逗号分隔的技能名。解析后应用到 enabledSkills，避免用户手动一个个勾、
-     * 也避免一次全开塞满上下文。
-     */
-    fun recommendSkills(assistant: Assistant, allSkills: List<SkillMetadata>) {
-        if (_skillRecommending.value) return
-        if (allSkills.isEmpty()) {
-            _skillRecommendMessage.value = "没有可用技能"
-            return
-        }
-        _skillRecommending.value = true
-        _skillRecommendMessage.value = null
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                val settings = settings.value
-                // 用快速模型（没配就退回默认聊天模型）做这次轻量分析
-                val model = settings.findModelById(settings.fastModelId)
-                    ?: settings.findModelById(settings.chatModelId)
-                    ?: error("请先在设置里配置模型")
-                val providerSetting = model.findProvider(settings.providers)
-                    ?: error("模型没有可用的提供商")
-                val provider = providerManager.getProviderByType(providerSetting)
-
-                val catalog = allSkills.joinToString("\n") { s ->
-                    "- ${s.name}: ${s.description.take(200)}"
-                }
-                val sys = """
-                    你是技能选择助手。下面是一个 AI 助手的用途，以及一批可用技能（名称: 说明）。
-                    请根据助手用途，挑选出最相关、最必要的技能（宁少勿多，通常 3~8 个，避免上下文过载）。
-                    只输出选中的技能名，用英文逗号分隔，不要任何解释、不要序号、不要多余文字。
-                    技能名必须严格从下面列表里原样复制。
-                """.trimIndent()
-                val userMsg = """
-                    # 助手用途
-                    ${assistant.systemPrompt.take(2000).ifBlank { assistant.name.ifBlank { "通用助手" } }}
-
-                    # 可用技能
-                    $catalog
-                """.trimIndent()
-
-                val result = provider.generateText(
-                    providerSetting = providerSetting,
-                    messages = listOf(
-                        UIMessage.system(sys),
-                        UIMessage(role = MessageRole.USER, parts = listOf(UIMessagePart.Text(userMsg))),
-                    ),
-                    params = TextGenerationParams(
-                        model = model,
-                        temperature = 0.1f,
-                        customHeaders = model.customHeaders,
-                        customBody = model.customBodies,
-                    ),
-                )
-                val raw = result.choices.firstOrNull()?.message?.toText().orEmpty()
-                // 用技能名去匹配模型输出（大小写不敏感，容忍模型多说话）
-                val validNames = allSkills.map { it.name }
-                val picked = validNames.filter { name ->
-                    raw.contains(name, ignoreCase = true)
-                }.toSet()
-                picked
-            }.onSuccess { picked ->
-                if (picked.isEmpty()) {
-                    _skillRecommendMessage.value = "AI 没能推荐出技能，请手动选择"
-                } else {
-                    update(assistant.copy(enabledSkills = picked))
-                    _skillRecommendMessage.value = "已推荐并启用 ${picked.size} 个技能"
-                }
-            }.onFailure {
-                Log.e(TAG, "recommendSkills failed", it)
-                _skillRecommendMessage.value = "推荐失败：${it.message ?: "未知错误"}"
-            }
-            _skillRecommending.value = false
-        }
-    }
-
-    fun clearSkillRecommendMessage() {
-        _skillRecommendMessage.value = null
     }
 
     fun addMemory(memory: AssistantMemory) {

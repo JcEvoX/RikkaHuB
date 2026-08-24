@@ -55,6 +55,7 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import me.rerere.ai.provider.BuiltInTools
 import me.rerere.ai.provider.Model
 import me.rerere.ai.ui.UIMessagePart
 import me.rerere.common.android.appTempFolder
@@ -75,6 +76,7 @@ import me.rerere.rikkahub.data.repository.WorkspaceRepository
 import me.rerere.rikkahub.service.ChatError
 import me.rerere.rikkahub.ui.components.ai.ChatInput
 import me.rerere.rikkahub.ui.components.ai.FilesPicker
+import me.rerere.rikkahub.ui.components.ai.SearchMode
 import me.rerere.rikkahub.ui.components.ai.completion.WorkspaceCompletionProvider
 import me.rerere.rikkahub.ui.components.ai.useCropLauncher
 import me.rerere.rikkahub.ui.components.ui.permission.PermissionCamera
@@ -89,7 +91,6 @@ import me.rerere.rikkahub.ui.hooks.useEditState
 import me.rerere.rikkahub.utils.ImageUtils
 import me.rerere.rikkahub.utils.base64Decode
 import me.rerere.rikkahub.utils.isAllowedFileType
-import me.rerere.rikkahub.utils.isReverseBinaryFile
 import me.rerere.rikkahub.utils.navigateToChatPage
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -150,40 +151,25 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     // 初始化输入状态（处理传入的 files 和 text 参数）
     LaunchedEffect(files, text) {
         if (files.isNotEmpty()) {
+            val localFiles = filesManager.createChatFilesByContents(files)
+            val contentTypes = files.mapNotNull { file ->
+                filesManager.getFileMimeType(file)
+            }
             val parts = buildList {
-                files.forEach { srcUri ->
-                    val fileName = filesManager.getFileNameFromUri(srcUri) ?: "file"
-                    val mime = filesManager.getFileMimeType(srcUri) ?: "application/octet-stream"
-                    when {
-                        mime.startsWith("image/") -> {
-                            filesManager.createChatFilesByContents(listOf(srcUri)).firstOrNull()
-                                ?.let { add(UIMessagePart.Image(url = it.toString())) }
-                        }
-                        mime.startsWith("video/") -> {
-                            filesManager.createChatFilesByContents(listOf(srcUri)).firstOrNull()
-                                ?.let { add(UIMessagePart.Video(url = it.toString())) }
-                        }
-                        mime.startsWith("audio/") -> {
-                            filesManager.createChatFilesByContents(listOf(srcUri)).firstOrNull()
-                                ?.let { add(UIMessagePart.Audio(url = it.toString())) }
-                        }
-                        // 分享进来的逆向二进制（APK/SO/DEX 等）也接住，复制到公共目录供外部 MCP 读取。
-                        isReverseBinaryFile(fileName, mime) -> {
-                            filesManager.createReverseFilesByContents(listOf(srcUri)).firstOrNull()
-                                ?.let { add(UIMessagePart.Document(url = it.toString(), fileName = fileName, mime = mime)) }
-                        }
-                        isAllowedFileType(fileName, mime) -> {
-                            filesManager.createChatFilesByContents(listOf(srcUri)).firstOrNull()
-                                ?.let { add(UIMessagePart.Document(url = it.toString(), fileName = fileName, mime = mime)) }
-                        }
+                localFiles.forEachIndexed { index, file ->
+                    val type = contentTypes.getOrNull(index)
+                    if (type?.startsWith("image/") == true) {
+                        add(UIMessagePart.Image(url = file.toString()))
+                    } else if (type?.startsWith("video/") == true) {
+                        add(UIMessagePart.Video(url = file.toString()))
+                    } else if (type?.startsWith("audio/") == true) {
+                        add(UIMessagePart.Audio(url = file.toString()))
                     }
                 }
             }
             inputState.messageContent = parts
         }
-        text?.let { raw ->
-            // 兼容两种传入：base64 编码文本（正常路径）或未编码明文（兜底，避免非法 base64 崩溃）
-            val decodedText = runCatching { raw.base64Decode() }.getOrElse { raw }
+        text?.base64Decode()?.let { decodedText ->
             if (decodedText.isNotEmpty()) {
                 inputState.setMessageText(decodedText)
             }
@@ -349,17 +335,33 @@ private fun ChatPageContent(
                         vm.stopGeneration()
                     },
                     enableSearch = enableWebSearch,
-                    onToggleSearch = {
+                    onUpdateSearchMode = { mode ->
                         val current = setting.getCurrentAssistant()
+                        val model = setting.getCurrentChatModel()
                         vm.updateSettings(
                             setting.copy(
                                 assistants = setting.assistants.map { assistant ->
                                     if (assistant.id == current.id) {
-                                        assistant.copy(enableWebSearch = !enableWebSearch)
+                                        assistant.copy(enableWebSearch = mode == SearchMode.LOCAL)
                                     } else {
                                         assistant
                                     }
-                                }
+                                },
+                                providers = if (model == null) {
+                                    setting.providers
+                                } else {
+                                    setting.providers.map { provider ->
+                                        provider.editModel(
+                                            model.copy(
+                                                tools = if (mode == SearchMode.BUILT_IN) {
+                                                    model.tools + BuiltInTools.Search
+                                                } else {
+                                                    model.tools - BuiltInTools.Search
+                                                }
+                                            )
+                                        )
+                                    }
+                                },
                             )
                         )
                     },
@@ -649,25 +651,18 @@ private fun ChatFilesPickerSheet(
                     val fileName = filesManager.getFileNameFromUri(uri) ?: "file"
                     val mime = filesManager.getFileMimeType(uri) ?: "text/plain"
                     if (isAllowedFileType(fileName, mime)) {
-                        // 逆向二进制文件（APK/SO/DEX 等）复制到公共目录，方便外部 MCP（MT/SOMCP）读取；
-                        // 普通文档仍存私有 upload 目录。扩展名+MIME 双判断，防文件名无后缀时误判。
-                        val isReverse = isReverseBinaryFile(fileName, mime)
-                        val localUri = if (isReverse) {
-                            filesManager.createReverseFilesByContents(listOf(uri)).firstOrNull()
-                        } else {
-                            filesManager.createChatFilesByContents(listOf(uri)).firstOrNull()
-                        } ?: run {
-                            toaster.show(
-                                context.getString(R.string.chat_input_file_read_failed, fileName),
-                                type = ToastType.Error
-                            )
-                            return@mapNotNull null
-                        }
+                        val localUri = filesManager.createChatFilesByContents(listOf(uri)).firstOrNull()
+                            ?: run {
+                                toaster.show(
+                                    context.getString(R.string.chat_input_file_read_failed, fileName),
+                                    type = ToastType.Error
+                                )
+                                return@mapNotNull null
+                            }
                         UIMessagePart.Document(url = localUri.toString(), fileName = fileName, mime = mime)
                     } else {
-                        // 带上 MIME 便于排查（某些文件管理器给的文件名无扩展名 / MIME 非常规）
                         toaster.show(
-                            context.getString(R.string.chat_input_unsupported_file_type, "$fileName [$mime]"),
+                            context.getString(R.string.chat_input_unsupported_file_type, fileName),
                             type = ToastType.Error
                         )
                         null

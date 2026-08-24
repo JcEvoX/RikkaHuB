@@ -157,12 +157,22 @@ fun SettingAboutPage() {
                         modifier = Modifier.padding(horizontal = 8.dp),
                     ) {
                         item(
-                            onClick = {
-                                context.openUrl("https://qun.qq.com/universal-share/share?ac=1&authKey=kMISrTZBQ4UVubUbdp7pAvbO4vCPIRFqccDJRzRcYLjhjwRu9NQlbsU%2BTF5VxxV%2B&busi_data=eyJncm91cENvZGUiOiIxMDg1MjcyMjUwIiwidG9rZW4iOiJ5NjZmdk9yMllpczJpMmE0eW5WeWFIYWQzR2gyTlFseC84Z05QYjFiSmhBVjdDek9tb0dleFR4d3J0OEF2blJKIiwidWluIjoiMTQzNDcyNDIwNyJ9&data=-mZAvTAohk46N0_A2N29229FGHvGPCPK35_uR26ybHAIf1UQ-U5C9lH-lLveVZbdslthO8zzjg5wggoKpMY1ag&svctype=4&tempid=h5_group_info")
-                            },
+                            onClick = { context.openUrl("https://rikka-ai.com/") },
                             leadingContent = { Icon(HugeIcons.Earth, null) },
-                            supportingContent = { Text("QQ 群：1085272250") },
-                            headlineContent = { Text("官方交流群") },
+                            supportingContent = { Text("https://rikka-ai.com") },
+                            headlineContent = { Text(stringResource(R.string.about_page_website)) },
+                        )
+                        item(
+                            onClick = { context.openUrl("https://github.com/rikkahub/rikkahub") },
+                            leadingContent = { Icon(HugeIcons.Github, null) },
+                            supportingContent = { Text("https://github.com/rikkahub/rikkahub") },
+                            headlineContent = { Text(stringResource(R.string.about_page_github)) },
+                        )
+                        item(
+                            onClick = { context.openUrl("https://github.com/rikkahub/rikkahub/blob/master/LICENSE") },
+                            leadingContent = { Icon(HugeIcons.File02, null) },
+                            supportingContent = { Text("https://github.com/rikkahub/rikkahub/blob/master/LICENSE") },
+                            headlineContent = { Text(stringResource(R.string.about_page_license)) },
                         )
                     }
                 }

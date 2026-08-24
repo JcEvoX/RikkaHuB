@@ -212,9 +212,6 @@ fun ExtensionSelector(
                                 onUpdate(assistant.copy(enabledSkills = newSkills))
                             },
                             onManage = onNavigateToSkills,
-                            onSetAll = { names ->
-                                onUpdate(assistant.copy(enabledSkills = names))
-                            },
                         )
                     } else {
                         ExtensionEmptyState(

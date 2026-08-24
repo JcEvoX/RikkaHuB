@@ -33,6 +33,7 @@ val viewModelModule = module {
             conversationRepo = get(),
             chatService = get(),
             updateChecker = get(),
+            analytics = get(),
             filesManager = get(),
             favoriteRepository = get(),
         )
@@ -50,7 +51,6 @@ val viewModelModule = module {
             filesManager = get(),
             skillManager = get(),
             workspaceRepository = get(),
-            providerManager = get(),
         )
     }
     viewModelOf(::TranslatorVM)

@@ -59,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,6 +71,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -88,6 +91,8 @@ import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.FileImport
 import me.rerere.hugeicons.stroke.McpServer
 import me.rerere.hugeicons.stroke.MessageBlocked
+import me.rerere.hugeicons.stroke.View
+import me.rerere.hugeicons.stroke.ViewOff
 import me.rerere.hugeicons.stroke.Settings03
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.ai.mcp.McpCommonOptions
@@ -194,22 +199,6 @@ fun SettingMcpPage(vm: SettingVM = koinViewModel()) {
                     bottom = innerPadding.calculateBottomPadding() + 16.dp,
                 )
             ) {
-                if (mcpConfigs.isNotEmpty()) {
-                    item(key = "mcp_health") {
-                        McpHealthBanner(
-                            configs = mcpConfigs,
-                            status = status,
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
-                }
-                item(key = "reverse_workbench") {
-                    ReverseWorkbenchCard(
-                        settings = settings,
-                        onUpdateSettings = { vm.updateSettings(it) },
-                        modifier = Modifier.animateItem(),
-                    )
-                }
                 items(mcpConfigs, key = { it.id }) { mcpConfig ->
                     McpServerItem(
                         item = mcpConfig,
@@ -740,6 +729,7 @@ private fun McpCommonOptionsConfigure(
                 config.commonOptions.headers.forEachIndexed { index, header ->
                     var headerName by remember(header.first) { mutableStateOf(header.first) }
                     var headerValue by remember(header.second) { mutableStateOf(header.second) }
+                    var headerValueVisible by rememberSaveable { mutableStateOf(false) }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -792,6 +782,15 @@ private fun McpCommonOptionsConfigure(
                                 },
                                 label = { Text(stringResource(R.string.setting_mcp_page_header_value)) },
                                 modifier = Modifier.fillMaxWidth(),
+                                visualTransformation = if (headerValueVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { headerValueVisible = !headerValueVisible }) {
+                                        Icon(
+                                            if (headerValueVisible) HugeIcons.ViewOff else HugeIcons.View,
+                                            contentDescription = null
+                                        )
+                                    }
+                                },
                                 placeholder = { Text(stringResource(R.string.setting_mcp_page_header_value_placeholder)) }
                             )
                         }
@@ -1025,10 +1024,7 @@ private fun parseMcpServersFromJson(json: String): List<McpServerConfig> {
         val headers = obj["headers"]?.jsonObject?.entries?.map { (k, v) ->
             k to (v.jsonPrimitive.contentOrNull ?: "")
         } ?: emptyList()
-        // 名称只能含字母数字（App 有校验）。别人分享的配置常带连字符/下划线，
-        // 这里清理成合法名称，避免导入后无法启用。清理后为空则用 mcp+序号兜底。
-        val safeName = name.filter { it.isLetterOrDigit() }.ifBlank { "mcp" }
-        val commonOptions = McpCommonOptions(name = safeName, headers = headers)
+        val commonOptions = McpCommonOptions(name = name, headers = headers)
         when (type) {
             "sse" -> McpServerConfig.SseTransportServer(commonOptions = commonOptions, url = url)
             else -> McpServerConfig.StreamableHTTPServer(commonOptions = commonOptions, url = url)

@@ -5,7 +5,6 @@ import me.rerere.hugeicons.stroke.Pin
 import me.rerere.hugeicons.stroke.PinOff
 import me.rerere.hugeicons.stroke.GlobalSearch
 import me.rerere.hugeicons.stroke.Delete01
-import me.rerere.hugeicons.stroke.PencilEdit01
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -101,13 +99,6 @@ fun HistoryPage(vm: HistoryVM = koinViewModel()) {
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { navigateToChatPage(navController) },
-                icon = { Icon(HugeIcons.PencilEdit01, contentDescription = null) },
-                text = { Text("新建对话") },
-            )
         }
     ) { contentPadding ->
         val snackMessageDeleted = stringResource(R.string.history_page_conversation_deleted)
@@ -116,22 +107,6 @@ fun HistoryPage(vm: HistoryVM = koinViewModel()) {
             contentPadding = contentPadding + PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (conversations.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 120.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "还没有对话，点右下角「新建对话」开始",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
             items(conversations, key = { it.id }) { conversation ->
                 SwipeableConversationItem(
                     conversation = conversation,

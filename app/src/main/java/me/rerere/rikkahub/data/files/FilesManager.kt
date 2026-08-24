@@ -102,44 +102,6 @@ class FilesManager(
     fun getFile(entity: ManagedFileEntity): File =
         File(context.filesDir, entity.relativePath)
 
-    /**
-     * 把逆向二进制文件（APK/SO/DEX 等）复制到外部公共目录 /sdcard/Download/RikkaHub/，
-     * 返回复制后的 file:// Uri。放公共目录是为了让外部 MCP（MT 管理器 / SOMCP）能读到——
-     * App 私有目录 (filesDir) 外部应用访问不了。需已授予"全部文件访问"权限。
-     * 失败（无权限等）时回退到私有 upload 目录。
-     */
-    fun createReverseFilesByContents(uris: List<Uri>): List<Uri> {
-        val publicDir = File(
-            android.os.Environment.getExternalStorageDirectory(),
-            "Download/RikkaHub"
-        )
-        val ok = runCatching { if (!publicDir.exists()) publicDir.mkdirs() else true }.getOrDefault(false)
-        if (!ok || !publicDir.canWrite()) {
-            // 没权限/建不了公共目录 → 回退私有目录（AI 至少拿到路径，能否读取取决于 MCP）
-            Log.w(TAG, "createReverseFilesByContents: public dir unavailable, fallback to private upload")
-            return createChatFilesByContents(uris)
-        }
-        val newUris = mutableListOf<Uri>()
-        uris.forEach { uri ->
-            runCatching {
-                val sourceName = getFileNameFromUri(uri) ?: uri.lastPathSegment ?: "file"
-                // 保留原始文件名（逆向工具/用户看得懂），重名则加短随机前缀避免覆盖
-                val target = File(publicDir, sourceName).let {
-                    if (it.exists()) File(publicDir, "${System.currentTimeMillis() % 100000}_$sourceName") else it
-                }
-                val inputStream = context.contentResolver.openInputStream(uri)
-                    ?: error("Failed to open input stream for $uri")
-                inputStream.use { input ->
-                    target.outputStream().use { output -> input.copyTo(output) }
-                }
-                newUris.add(target.toUri())
-            }.onFailure {
-                Log.e(TAG, "createReverseFilesByContents: failed for $uri", it)
-            }
-        }
-        return newUris.ifEmpty { createChatFilesByContents(uris) }
-    }
-
     fun createChatFilesByContents(uris: List<Uri>): List<Uri> {
         val newUris = mutableListOf<Uri>()
         val dir = context.filesDir.resolve(FileFolders.UPLOAD)

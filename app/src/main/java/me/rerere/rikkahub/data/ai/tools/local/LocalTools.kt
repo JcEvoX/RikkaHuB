@@ -28,8 +28,6 @@ class LocalTools(
 
     val calendarCreateTool by lazy { buildCalendarCreateTool(context) }
 
-    val webFetchTool by lazy { buildWebFetchTool() }
-
     fun getTools(options: List<LocalToolOption>): List<Tool> {
         val tools = mutableListOf<Tool>()
         if (options.contains(LocalToolOption.JavascriptEngine)) {
@@ -53,9 +51,6 @@ class LocalTools(
         if (options.contains(LocalToolOption.Calendar)) {
             tools.add(calendarQueryTool)
             tools.add(calendarCreateTool)
-        }
-        if (options.contains(LocalToolOption.WebFetch)) {
-            tools.add(webFetchTool)
         }
         return tools
     }

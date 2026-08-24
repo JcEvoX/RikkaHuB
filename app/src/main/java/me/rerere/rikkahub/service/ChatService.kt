@@ -1,7 +1,6 @@
 package me.rerere.rikkahub.service
 
 import android.app.Application
-import android.content.Intent
 import android.content.Context
 import android.util.Log
 import androidx.core.net.toUri
@@ -26,10 +25,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.core.ReasoningLevel
 import me.rerere.ai.core.Tool
+import me.rerere.ai.provider.BuiltInTools
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ProviderManager
@@ -102,6 +103,10 @@ internal fun backgroundTextGenerationParams(
     customBody = model.customBodies,
 )
 
+internal fun shouldUseExternalWebSearch(assistant: Assistant, model: Model): Boolean {
+    return assistant.enableWebSearch && BuiltInTools.Search !in model.tools
+}
+
 data class ChatError(
     val id: Uuid = Uuid.random(),
     val title: String? = null,
@@ -156,10 +161,6 @@ class ChatService(
     // 统一会话管理
     private val sessions = ConcurrentHashMap<Uuid, ConversationSession>()
     private val _sessionsVersion = MutableStateFlow(0L)
-
-    // 持续工作——记录每个会话已"自动继续"的轮数，达上限停止，防止无限烧 token。
-    // 用户手动发新消息时清零（在 sendMessage 里）。
-    private val continuousWorkRounds = ConcurrentHashMap<Uuid, Int>()
 
     // 错误状态
     private val _errors = MutableStateFlow<List<ChatError>>(emptyList())
@@ -303,16 +304,8 @@ class ChatService(
 
     // ---- 发送消息 ----
 
-    fun sendMessage(
-        conversationId: Uuid,
-        content: List<UIMessagePart>,
-        answer: Boolean = true,
-        isAutoContinue: Boolean = false,
-    ) {
+    fun sendMessage(conversationId: Uuid, content: List<UIMessagePart>, answer: Boolean = true) {
         if (content.isEmptyInputMessage()) return
-
-        // 用户手动发消息 = 新任务，清空持续工作计数（自动继续的调用不清）。
-        if (!isAutoContinue) continuousWorkRounds.remove(conversationId)
 
         val session = getOrCreateSession(conversationId)
         val previousJob = session.getJob()
@@ -337,12 +330,6 @@ class ChatService(
                     ).toMessageNode(),
                 )
                 saveConversation(conversationId, newConversation)
-
-                // 发送前预检压缩——若上下文已接近阈值，先压缩再发，防止"当轮就超限"。
-                if (answer) {
-                    runCatching { maybeAutoCompressBeforeSend(conversationId, session.state.value) }
-                        .onFailure { Log.e(TAG, "pre-send compress failed", it) }
-                }
 
                 // 开始补全
                 if (answer) {
@@ -488,9 +475,6 @@ class ChatService(
         messageRange: ClosedRange<Int>? = null
     ) {
         val settings = settingsStore.settingsFlow.first()
-        // 开启消息保活 或 AI 悬浮球时，生成开始就拉起前台服务（服务在生成结束事件后自退）。
-        // 悬浮球需系统级悬浮窗常驻，也靠这个前台服务持有，切后台/其他 App 才能一直显示。
-        if (settings.enableChatKeepAlive || settings.enableAiFloatingWindow) startChatKeepAlive()
         val initialConversation = getConversationFlow(conversationId).value
         val assistant = settings.getAssistantById(initialConversation.assistantId)
             ?: settings.getCurrentAssistant()
@@ -501,6 +485,7 @@ class ChatService(
         } else {
             model.displayName
         }
+        val useExternalWebSearch = shouldUseExternalWebSearch(assistant, model)
 
         runCatching {
 
@@ -509,7 +494,7 @@ class ChatService(
 
             // memory tool
             if (!model.abilities.contains(ModelAbility.TOOL)) {
-                if (assistant.enableWebSearch || mcpManager.getAllAvailableTools().isNotEmpty()) {
+                if (useExternalWebSearch || mcpManager.getAllAvailableTools().isNotEmpty()) {
                     addError(
                         IllegalStateException(context.getString(R.string.tools_warning)),
                         conversationId,
@@ -552,7 +537,7 @@ class ChatService(
                 },
                 outputTransformers = outputTransformers,
                 tools = buildList {
-                    if (assistant.enableWebSearch) {
+                    if (useExternalWebSearch) {
                         addAll(createSearchTools(settings))
                     }
                     addAll(localTools.getTools(assistant.localTools))
@@ -653,153 +638,6 @@ class ChatService(
             launchWithConversationReference(conversationId) {
                 generateSuggestion(conversationId, finalConversation)
             }
-            // 自动压缩会话。生成完成后，若开启且当前上下文输入 token 超阈值，自动触发压缩，
-            // 避免长对话越滚越贵/超限。用最后一条 assistant 消息的 promptTokens（API 真实值）判断。
-            launchWithConversationReference(conversationId) {
-                maybeAutoCompress(conversationId, finalConversation)
-            }
-            // 持续工作。若开启且任务疑似未完成、且没到轮数上限，自动追加"继续"让 AI 接着干。
-            launchWithConversationReference(conversationId) {
-                maybeContinueWork(conversationId, finalConversation)
-            }
-        }
-    }
-
-    /**
-     * 持续工作——AI 停下后，如果任务疑似没干完且没到轮数上限，自动发一条"继续"提示让它接着做。
-     * 靠轮数硬上限兜底防止无限烧 token；检测到完成标志 [任务完成]/[DONE] 就停；用户可随时取消生成。
-     */
-    private suspend fun maybeContinueWork(conversationId: Uuid, conversation: Conversation) {
-        val settings = settingsStore.settingsFlow.first()
-        if (!settings.continuousWorkEnabled) return
-
-        val lastMsg = conversation.messageNodes.asReversed()
-            .map { it.currentMessage }
-            .firstOrNull { it.role == MessageRole.ASSISTANT } ?: return
-        val lastText = lastMsg.toText().trim()
-
-        // 关键：只有"这一轮真的用工具执行了任务"才自动续；纯聊天/打招呼/纯问答不续，
-        // 否则会像 bug 一样在欢迎语后乱发"继续"。用整轮最近的几条 assistant 消息判断有没有工具调用。
-        val recentUsedTools = conversation.messageNodes.asReversed()
-            .map { it.currentMessage }
-            .takeWhile { it.role == MessageRole.ASSISTANT }
-            .any { it.getTools().isNotEmpty() }
-        if (!recentUsedTools) {
-            continuousWorkRounds.remove(conversationId)
-            return
-        }
-
-        // 完成标志：模型明确说完成了就停
-        val doneMarkers = listOf("[任务完成]", "[DONE]", "任务已完成", "全部完成", "已完成所有", "没有更多", "无需继续")
-        if (doneMarkers.any { lastText.contains(it, ignoreCase = true) }) {
-            continuousWorkRounds.remove(conversationId)
-            return
-        }
-        // 空回复或极短回复不续（多半是异常结束）
-        if (lastText.length < 4) return
-
-        val used = continuousWorkRounds.getOrDefault(conversationId, 0)
-        if (used >= settings.continuousWorkMaxRounds) {
-            continuousWorkRounds.remove(conversationId)
-            return
-        }
-        continuousWorkRounds[conversationId] = used + 1
-        Log.i(TAG, "maybeContinueWork: auto-continue round ${used + 1}/${settings.continuousWorkMaxRounds} for $conversationId")
-
-        // 关键修复：此刻当前生成 job 还没完全结束（还在 onSuccess 里）。若立刻 sendMessage，
-        // sendMessage 会 cancel 掉正在收尾的 job，导致工具调用显示"cancelled by user"。
-        // 所以另起协程，等当前 job 彻底结束（generationDoneFlow 发出本会话事件）后再发"继续"。
-        appScope.launch {
-            runCatching { getOrCreateSession(conversationId).getJob()?.join() }
-            // 二次确认：等待期间用户可能手动发了消息/关了开关/已到上限，重新校验避免乱发。
-            val latest = settingsStore.settingsFlow.first()
-            if (!latest.continuousWorkEnabled) return@launch
-            if (getOrCreateSession(conversationId).isGenerating) return@launch
-            if (continuousWorkRounds.getOrDefault(conversationId, 0) > latest.continuousWorkMaxRounds) return@launch
-
-            // 追加一条"继续"提示（标记为自动继续，不清零计数）
-            sendMessage(
-                conversationId = conversationId,
-                content = listOf(
-                    UIMessagePart.Text(
-                        "请继续完成上面还没做完的任务。若所有任务都已完成，请在回复末尾明确写上 [任务完成]。"
-                    )
-                ),
-                answer = true,
-                isAutoContinue = true,
-            )
-        }
-    }
-
-    /** 拉起消息保活前台服务（幂等，服务已在跑则无副作用）。 */
-    private fun startChatKeepAlive() {
-        runCatching {
-            val intent = Intent(context, ChatKeepAliveService::class.java).apply {
-                action = ChatKeepAliveService.ACTION_START
-            }
-            context.startForegroundService(intent)
-        }.onFailure {
-            Log.e(TAG, "startChatKeepAlive failed", it)
-        }
-    }
-
-    /** 达阈值自动压缩会话（复用 compressConversation）。回复完成后调用，用 API 真实 promptTokens 判断。 */
-    private suspend fun maybeAutoCompress(conversationId: Uuid, conversation: Conversation) {
-        val settings = settingsStore.settingsFlow.first()
-        if (!settings.autoCompressEnabled) return
-        // 短会话不压（消息数少于设定的最低值）
-        if (conversation.messageNodes.size < settings.autoCompressMinMessages) return
-        val lastPromptTokens = conversation.messageNodes.asReversed()
-            .map { it.currentMessage }
-            .firstOrNull { it.role == MessageRole.ASSISTANT }
-            ?.usage?.promptTokens ?: 0
-        if (lastPromptTokens < settings.autoCompressThresholdTokens) return
-        // 至少要有足够多的消息才值得压（保留数 + 几条），否则没意义
-        if (conversation.messageNodes.size <= settings.autoCompressKeepRecent + 2) return
-        Log.i(TAG, "maybeAutoCompress: tokens=$lastPromptTokens >= ${settings.autoCompressThresholdTokens}, compressing")
-        compressConversation(
-            conversationId = conversationId,
-            conversation = conversation,
-            additionalPrompt = "",
-            targetTokens = settings.autoCompressTargetTokens,
-            keepRecentMessages = settings.autoCompressKeepRecent,
-        ).onFailure {
-            Log.e(TAG, "maybeAutoCompress failed", it)
-        }
-    }
-
-    /**
-     * 发送前预检压缩。防止"当轮就超限"——发请求前用字符数粗估 token，
-     * 若已接近阈值就先压缩再发。字符估算：中文约 1 字/token，英文约 4 字/token，取保守值 ~2 字/token。
-     */
-    private suspend fun maybeAutoCompressBeforeSend(conversationId: Uuid, conversation: Conversation) {
-        val settings = settingsStore.settingsFlow.first()
-        if (!settings.autoCompressEnabled) return
-        if (conversation.messageNodes.size < settings.autoCompressMinMessages) return
-        if (conversation.messageNodes.size <= settings.autoCompressKeepRecent + 2) return
-        // 优先用最后一条 assistant 的 API 真实 promptTokens；没有则用全文字符数粗估
-        val lastPromptTokens = conversation.messageNodes.asReversed()
-            .map { it.currentMessage }
-            .firstOrNull { it.role == MessageRole.ASSISTANT }
-            ?.usage?.promptTokens ?: 0
-        val estimatedTokens = if (lastPromptTokens > 0) {
-            lastPromptTokens
-        } else {
-            val totalChars = conversation.messageNodes.sumOf { node ->
-                runCatching { node.currentMessage.toText().length }.getOrDefault(0)
-            }
-            totalChars / 2
-        }
-        if (estimatedTokens < settings.autoCompressThresholdTokens) return
-        Log.i(TAG, "maybeAutoCompressBeforeSend: est=$estimatedTokens >= ${settings.autoCompressThresholdTokens}, compressing before send")
-        compressConversation(
-            conversationId = conversationId,
-            conversation = conversation,
-            additionalPrompt = "",
-            targetTokens = settings.autoCompressTargetTokens,
-            keepRecentMessages = settings.autoCompressKeepRecent,
-        ).onFailure {
-            Log.e(TAG, "maybeAutoCompressBeforeSend failed", it)
         }
     }
 
@@ -902,18 +740,19 @@ class ChatService(
         conversationId: Uuid,
         conversation: Conversation,
         force: Boolean = false
-    ) {
+    ) = withContext(Dispatchers.IO) {
         val shouldGenerate = when {
             force -> true
             conversation.title.isBlank() -> true
             else -> false
         }
-        if (!shouldGenerate) return
+        if (!shouldGenerate) return@withContext
 
         runCatching {
             val settings = settingsStore.settingsFlow.first()
-            val model = settings.findModelById(settings.titleModelId, fallback = settings.fastModelId) ?: return
-            val provider = model.findProvider(settings.providers) ?: return
+            val model = settings.findModelById(settings.titleModelId, fallback = settings.fastModelId)
+                ?: return@runCatching
+            val provider = model.findProvider(settings.providers) ?: return@runCatching
 
             val providerHandler = providerManager.getProviderByType(provider)
             val result = providerHandler.generateText(
@@ -933,32 +772,32 @@ class ChatService(
             conversationRepo.getConversationById(conversation.id)?.let {
                 saveConversation(
                     conversationId,
-                    it.copy(title = result.choices[0].message?.toText()?.trim() ?: "")
+                    it.copy(title = result.message.toText().trim())
                 )
             }
         }.onFailure {
             it.printStackTrace()
-            // 仅当用户【手动】重新生成标题（force=true）时才弹错误卡；
-            // 自动生成标题失败（如标题模型未配置/余额不足/限流）静默忽略，不打扰用户。
-            if (force) {
-                addError(
-                    error = it,
-                    conversationId = conversationId,
-                    title = context.getString(R.string.error_title_generate_title),
-                    solution = ChatErrorSolution.CheckTitleModelSettings,
-                )
-            }
+            addError(
+                error = it,
+                conversationId = conversationId,
+                title = context.getString(R.string.error_title_generate_title),
+                solution = ChatErrorSolution.CheckTitleModelSettings,
+            )
         }
     }
 
     // ---- 生成建议 ----
 
-    suspend fun generateSuggestion(conversationId: Uuid, conversation: Conversation) {
+    suspend fun generateSuggestion(
+        conversationId: Uuid,
+        conversation: Conversation,
+    ) = withContext(Dispatchers.IO) {
         runCatching {
             val settings = settingsStore.settingsFlow.first()
-            if (!settings.enableSuggestion) return
-            val model = settings.findModelById(settings.suggestionModelId, fallback = settings.fastModelId) ?: return
-            val provider = model.findProvider(settings.providers) ?: return
+            if (!settings.enableSuggestion) return@runCatching
+            val model = settings.findModelById(settings.suggestionModelId, fallback = settings.fastModelId)
+                ?: return@runCatching
+            val provider = model.findProvider(settings.providers) ?: return@runCatching
 
             sessions[conversationId]?.let { session ->
                 updateConversation(
@@ -981,8 +820,8 @@ class ChatService(
                 params = backgroundTextGenerationParams(model),
             )
             val suggestions =
-                result.choices[0].message?.toText()?.split("\n")?.map { it.trim() }
-                    ?.filter { it.isNotBlank() } ?: emptyList()
+                result.message.toText().split("\n").map { it.trim() }
+                    .filter { it.isNotBlank() }
 
             val latestConversation = conversationRepo.getConversationById(conversationId)
                 ?: sessions[conversationId]?.state?.value
@@ -1061,7 +900,7 @@ class ChatService(
                 params = backgroundTextGenerationParams(model),
             )
 
-            return result.choices[0].message?.toText()?.trim()
+            return result.message.toText().trim().takeIf { it.isNotBlank() }
                 ?: throw IllegalStateException("Failed to generate compressed summary")
         }
 

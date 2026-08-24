@@ -226,21 +226,6 @@ private fun AssistantLocalToolContent(
                     )
                 }
             )
-            // 内置网页抓取（不需外部 MCP）
-            item(
-                headlineContent = {
-                    Text("网页抓取")
-                },
-                supportingContent = {
-                    Text("让 AI 直接抓取网页正文（查文档、查资料、看接口说明），无需外部工具。")
-                },
-                trailingContent = {
-                    Switch(
-                        checked = assistant.localTools.contains(LocalToolOption.WebFetch),
-                        onCheckedChange = { toggleLocalTool(LocalToolOption.WebFetch, it) }
-                    )
-                }
-            )
         }
     }
 }

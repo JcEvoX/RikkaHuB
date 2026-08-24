@@ -32,9 +32,4 @@ sealed class LocalToolOption {
     @Serializable
     @SerialName("calendar")
     data object Calendar : LocalToolOption()
-
-    // 内置网页抓取（不需外部 MCP）
-    @Serializable
-    @SerialName("web_fetch")
-    data object WebFetch : LocalToolOption()
 }

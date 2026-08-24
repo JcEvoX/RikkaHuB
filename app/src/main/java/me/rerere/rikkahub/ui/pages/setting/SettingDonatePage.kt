@@ -95,7 +95,29 @@ private fun DonateMethodsCardGroup() {
         modifier = Modifier.fillMaxWidth(),
         title = { Text(stringResource(R.string.donate_page_donation_methods)) },
     ) {
-        // 已移除原作者（reovo）的 Kofi / 爱发电 捐赠入口。
+        item(
+            onClick = { context.openUrl("https://ko-fi.com/reovodev") },
+            leadingContent = {
+                AsyncImage(
+                    model = R.drawable.kofi,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                )
+            },
+            supportingContent = { Text(stringResource(R.string.donate_page_kofi_desc)) },
+            headlineContent = { Text("Kofi") },
+        )
+        item(
+            onClick = { context.openUrl("https://afdian.com/a/reovo") },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(R.drawable.afdian),
+                    contentDescription = null,
+                )
+            },
+            supportingContent = { Text(stringResource(R.string.donate_page_afdian_desc)) },
+            headlineContent = { Text("爱发电") },
+        )
     }
 }
 

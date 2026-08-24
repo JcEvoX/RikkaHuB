@@ -46,7 +46,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import me.rerere.common.http.jsonObjectOrNull
-import me.rerere.highlight.HighlightText
+import me.rerere.highlight.CodeHighlightText
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Clipboard
 import me.rerere.hugeicons.stroke.Delete01
@@ -247,30 +247,6 @@ object ScrapeWebToolUI : ToolUIRenderer {
             return
         }
         ScrapeWebPreview(content = content)
-    }
-}
-
-/**
- * 内置网页抓取工具的展示（中文标题 + 显示 URL）
- */
-object WebFetchToolUI : ToolUIRenderer {
-    override val toolName: String = "web_fetch"
-
-    override fun icon(context: ToolUIContext): ImageVector = HugeIcons.GlobalSearch
-
-    @Composable
-    override fun title(context: ToolUIContext): String = "网页抓取"
-
-    override fun hasSummary(context: ToolUIContext): Boolean =
-        context.arguments.getStringContent("url") != null
-
-    @Composable
-    override fun Summary(context: ToolUIContext) {
-        Text(
-            text = context.arguments.getStringContent("url") ?: "",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-        )
     }
 }
 
@@ -796,7 +772,7 @@ private fun SearchWebPreview(
             }
         } else {
             item {
-                HighlightText(
+                CodeHighlightText(
                     code = JsonInstantPretty.encodeToString(content),
                     language = "json",
                     fontSize = 12.sp

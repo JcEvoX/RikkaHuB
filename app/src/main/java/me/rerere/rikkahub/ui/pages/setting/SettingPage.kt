@@ -60,7 +60,6 @@ import me.rerere.hugeicons.stroke.Megaphone01
 import me.rerere.hugeicons.stroke.Package
 import me.rerere.hugeicons.stroke.ServerStack01
 import me.rerere.hugeicons.stroke.Settings03
-import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.hugeicons.stroke.Share04
 import me.rerere.hugeicons.stroke.Sun01
 import me.rerere.hugeicons.stroke.WavingHand01
@@ -91,7 +90,31 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
 
-    // RikkaHub：移除每 50 次启动弹一次的赞助提醒弹窗。
+    if (settings.launchCount > 100 && (settings.launchCount - settings.sponsorAlertDismissedAt) >= 50) {
+        AlertDialog(
+            onDismissRequest = {
+                vm.updateSettings(settings.copy(sponsorAlertDismissedAt = settings.launchCount))
+            },
+            icon = { Icon(HugeIcons.WavingHand01, null) },
+            title = { Text(stringResource(R.string.setting_page_sponsor_alert_title)) },
+            text = { Text(stringResource(R.string.setting_page_sponsor_alert_desc)) },
+            confirmButton = {
+                Button(onClick = {
+                    vm.updateSettings(settings.copy(sponsorAlertDismissedAt = settings.launchCount))
+                    navController.navigate(Screen.SettingDonate)
+                }) {
+                    Text(stringResource(R.string.setting_page_sponsor_alert_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.updateSettings(settings.copy(sponsorAlertDismissedAt = settings.launchCount))
+                }) {
+                    Text(stringResource(R.string.setting_page_sponsor_alert_dismiss))
+                }
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -163,13 +186,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         leadingContent = { Icon(HugeIcons.Settings03, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_preferences_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_preferences)) },
-                    )
-                    // 高级功能入口（消息保活/悬浮窗/持续工作/自动压缩/全文件访问）
-                    item(
-                        onClick = { navController.navigate(Screen.SettingAdvanced) },
-                        leadingContent = { Icon(HugeIcons.Sparkles, null) },
-                        supportingContent = { Text("消息保活 · AI悬浮窗 · 持续工作 · 自动压缩 · 全文件访问") },
-                        headlineContent = { Text("高级功能") },
                     )
                     item(
                         onClick = { navController.navigate(Screen.Assistant) },
@@ -278,6 +294,39 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         onClick = { navController.navigate(Screen.SettingAbout) },
                         leadingContent = { Icon(HugeIcons.Clapping01, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_about_desc)) },
+                        trailingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                var showQQGroupSheet by remember { mutableStateOf(false) }
+                                IconButton(
+                                    onClick = { showQQGroupSheet = true }
+                                ) {
+                                    Icon(
+                                        imageVector = TencentQQIcon,
+                                        contentDescription = "QQ",
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                                if (showQQGroupSheet) {
+                                    QQGroupBottomSheet(
+                                        onDismiss = { showQQGroupSheet = false }
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        context.openUrl("https://discord.gg/9weBqxe5c4")
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = DiscordIcon,
+                                        contentDescription = "Discord",
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+                        },
                         headlineContent = { Text(stringResource(R.string.setting_page_about)) },
                     )
                     item(
@@ -300,20 +349,25 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         headlineContent = { Text(stringResource(R.string.setting_page_request_logs)) },
                     )
                     item(
+                        onClick = { navController.navigate(Screen.SettingDonate) },
+                        leadingContent = { Icon(HugeIcons.InLove, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_donate_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_donate)) },
+                    )
+                    item(
                         onClick = {
-                            // QQ 交流群（群号 1085272250）：先尝试唤起手Q加群，失败则打开分享链接
-                            if (!context.joinQQGroup(XUANXING_QQ_GROUP_KEY)) {
-                                context.openUrl(XUANXING_QQ_GROUP_URL)
+                            val intent = Intent(Intent.ACTION_SEND)
+                            intent.type = "text/plain"
+                            intent.putExtra(Intent.EXTRA_TEXT, shareText)
+                            try {
+                                context.startActivity(Intent.createChooser(intent, share))
+                            } catch (e: ActivityNotFoundException) {
+                                Toast.makeText(context, noShareApp, Toast.LENGTH_SHORT).show()
                             }
                         },
-                        leadingContent = {
-                            Icon(
-                                imageVector = TencentQQIcon,
-                                contentDescription = null,
-                            )
-                        },
-                        supportingContent = { Text("群号 1085272250 · 点击加入") },
-                        headlineContent = { Text("加入 QQ 交流群") },
+                        leadingContent = { Icon(HugeIcons.Share04, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_share_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_share)) },
                     )
                 }
             }
@@ -361,12 +415,43 @@ private fun ProviderConfigWarningCard(navController: Navigator) {
     }
 }
 
-// QQ 交流群 1085272250
-// KEY：手Q "mqqopensdkapi" 加群协议用的 authKey（来自加群分享链接）
-private const val XUANXING_QQ_GROUP_KEY =
-    "kMISrTZBQ4UVubUbdp7pAvbO4vCPIRFqccDJRzRcYLjhjwRu9NQlbsU+TF5VxxV+"
-// URL：完整加群分享链接，唤起手Q失败时用浏览器打开做兜底
-private const val XUANXING_QQ_GROUP_URL =
-    "https://qun.qq.com/universal-share/share?ac=1&authKey=kMISrTZBQ4UVubUbdp7pAvbO4vCPIRFqccDJRzRcYLjhjwRu9NQlbsU%2BTF5VxxV%2B&busi_data=eyJncm91cENvZGUiOiIxMDg1MjcyMjUwIiwidG9rZW4iOiJ5NjZmdk9yMllpczJpMmE0eW5WeWFIYWQzR2gyTlFseC84Z05QYjFiSmhBVjdDek9tb0dleFR4d3J0OEF2blJKIiwidWluIjoiMTQzNDcyNDIwNyJ9&data=-mZAvTAohk46N0_A2N29229FGHvGPCPK35_uR26ybHAIf1UQ-U5C9lH-lLveVZbdslthO8zzjg5wggoKpMY1ag&svctype=4&tempid=h5_group_info"
+private data class QQGroup(
+    val name: String,
+    val key: String,
+)
 
+private val QQ_GROUPS = listOf(
+    QQGroup("RikkaHub 一群", "4POE46u9e_zoy1TkNfWdCvueR9CKFJdk"),
+    QQGroup("RikkaHub 二群", "Qsm0whzbPsm1UyNpR683ulLyMZ2Pqrw0"),
+    QQGroup("RikkaHub 三群", "Qc9oP-9tXioZeQEvEvI2_owWtBAIx3lS"),
+)
 
+@Composable
+private fun QQGroupBottomSheet(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            QQ_GROUPS.forEach { group ->
+                ListItem(
+                    headlineContent = { Text(group.name) },
+                    leadingContent = {
+                        Icon(
+                            imageVector = TencentQQIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                    },
+                    modifier = Modifier.clickable {
+                        context.joinQQGroup(group.key)
+                        onDismiss()
+                    }
+                )
+            }
+        }
+    }
+}

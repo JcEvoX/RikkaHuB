@@ -58,15 +58,12 @@ import coil3.svg.SvgDecoder
 import com.dokar.sonner.Toaster
 import com.dokar.sonner.rememberToasterState
 import kotlinx.serialization.Serializable
-import me.rerere.highlight.Highlighter
-import me.rerere.highlight.LocalHighlighter
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.db.DatabaseMigrationTracker
 import me.rerere.rikkahub.data.db.MigrationState
 import me.rerere.rikkahub.data.event.AppEvent
 import me.rerere.rikkahub.data.event.AppEventBus
 import me.rerere.rikkahub.ui.activity.SafeModeActivity
-import me.rerere.rikkahub.ui.components.nav.MainScaffold
 import me.rerere.rikkahub.ui.components.ui.TTSController
 import me.rerere.rikkahub.ui.context.LocalASRState
 import me.rerere.rikkahub.ui.context.LocalNavController
@@ -103,14 +100,10 @@ import me.rerere.rikkahub.ui.pages.extensions.workspace.WorkspaceTerminalPage
 import me.rerere.workspace.WorkspaceStorageArea
 import me.rerere.rikkahub.ui.pages.favorite.FavoritePage
 import me.rerere.rikkahub.ui.pages.history.HistoryPage
-import me.rerere.rikkahub.ui.pages.home.HomeDashboardPage
 import me.rerere.rikkahub.ui.pages.imggen.ImageGenPage
 import me.rerere.rikkahub.ui.pages.log.LogPage
 import me.rerere.rikkahub.ui.pages.search.SearchPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAboutPage
-import me.rerere.rikkahub.ui.pages.onboarding.OnboardingPage
-import me.rerere.rikkahub.ui.pages.setting.SettingAdvancedPage
-import me.rerere.rikkahub.ui.pages.setting.SettingAutoCompressPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesNotificationPage
@@ -145,7 +138,6 @@ import kotlin.uuid.Uuid
 private const val TAG = "RouteActivity"
 
 class RouteActivity : ComponentActivity() {
-    private val highlighter by inject<Highlighter>()
     private val okHttpClient by inject<OkHttpClient>()
     private val settingsStore by inject<SettingsStore>()
     private var navStack: MutableList<NavKey>? = null
@@ -263,20 +255,16 @@ class RouteActivity : ComponentActivity() {
         }
         val migrationState by DatabaseMigrationTracker.state.collectAsStateWithLifecycle()
 
-        // settings 是异步从 DataStore 加载的，首帧是占位值(init=true, onboardingCompleted=false)。
-        // 必须等真实设置加载完(init=false)再决定起始页，否则会用占位的 false 把起始页锁成引导页，导致每次启动都弹引导。
-        if (settings.init) {
-            // 设置还没加载完，先显示空白背景占位，避免过早锁定 backstack。
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            )
-            return
-        }
-
-        // 首次启动显示引导页，否则进首页仪表盘。
-        val startScreen = if (settings.onboardingCompleted) Screen.Home else Screen.Onboarding
+        val startScreen = Screen.Chat(
+            id = if (readBooleanPreference("create_new_conversation_on_start", true)) {
+                Uuid.random().toString()
+            } else {
+                readStringPreference(
+                    "lastConversationId",
+                    Uuid.random().toString()
+                ) ?: Uuid.random().toString()
+            }
+        )
 
         val backStack = rememberNavBackStack(startScreen)
         SideEffect { this@RouteActivity.navStack = backStack }
@@ -288,7 +276,6 @@ class RouteActivity : ComponentActivity() {
                 LocalNavController provides Navigator(backStack),
                 LocalSharedTransitionScope provides this,
                 LocalSettings provides settings,
-                LocalHighlighter provides highlighter,
                 LocalToaster provides toastState,
                 LocalTTSState provides tts,
                 LocalASRState provides asr,
@@ -301,22 +288,19 @@ class RouteActivity : ComponentActivity() {
                     showCloseButton = true,
                 )
                 TTSController()
-                // AI 生成悬浮球已改为系统级（ChatKeepAliveService 持有），
-                // 切后台/其他 App 也能显示，不再用这里的应用内悬浮窗。
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .semantics { testTagsAsResourceId = true }
                         .background(MaterialTheme.colorScheme.background)
                 ) {
-                  MainScaffold(backStack = backStack) { navModifier ->
                     NavDisplay(
                         backStack = backStack,
                         entryDecorators = listOf(
                             rememberSaveableStateHolderNavEntryDecorator(),
                             rememberViewModelStoreNavEntryDecorator(),
                         ),
-                        modifier = navModifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize(),
                         onBack = { backStack.removeLastOrNull() },
                         transitionSpec = {
                             if (backStack.size == 1) fadeIn() togetherWith fadeOut()
@@ -351,20 +335,6 @@ class RouteActivity : ComponentActivity() {
                                     text = key.text,
                                     image = key.streamUri
                                 )
-                            }
-
-                            entry<Screen.Home>(
-                                metadata = NavDisplay.transitionSpec { fadeIn() togetherWith fadeOut() }
-                                    + NavDisplay.popTransitionSpec { fadeIn() togetherWith fadeOut() }
-                            ) {
-                                HomeDashboardPage()
-                            }
-
-                            entry<Screen.Onboarding>(
-                                metadata = NavDisplay.transitionSpec { fadeIn() togetherWith fadeOut() }
-                                    + NavDisplay.popTransitionSpec { fadeIn() togetherWith fadeOut() }
-                            ) {
-                                OnboardingPage()
                             }
 
                             entry<Screen.History> {
@@ -437,14 +407,6 @@ class RouteActivity : ComponentActivity() {
 
                             entry<Screen.SettingPreferences> {
                                 SettingPreferencesPage()
-                            }
-
-                            entry<Screen.SettingAdvanced> {
-                                SettingAdvancedPage()
-                            }
-
-                            entry<Screen.SettingAutoCompress> {
-                                SettingAutoCompressPage()
                             }
 
                             entry<Screen.SettingPreferencesTheme> {
@@ -570,7 +532,6 @@ class RouteActivity : ComponentActivity() {
                             }
                         }
                     )
-                  }
                     if (BuildConfig.DEBUG) {
                         Text(
                             text = "[开发模式]",
@@ -632,9 +593,6 @@ sealed interface Screen : NavKey {
     data class ShareHandler(val text: String, val streamUri: String? = null) : Screen
 
     @Serializable
-    data object Home : Screen
-
-    @Serializable
     data object History : Screen
 
     @Serializable
@@ -689,12 +647,6 @@ sealed interface Screen : NavKey {
     data object SettingPreferences : Screen
 
     @Serializable
-    data object SettingAdvanced : Screen
-
-    @Serializable
-    data object SettingAutoCompress : Screen
-
-    @Serializable
     data object SettingPreferencesTheme : Screen
 
     @Serializable
@@ -711,9 +663,6 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingProvider : Screen
-
-    @Serializable
-    data object Onboarding : Screen
 
     @Serializable
     data class SettingProviderDetail(val providerId: String) : Screen

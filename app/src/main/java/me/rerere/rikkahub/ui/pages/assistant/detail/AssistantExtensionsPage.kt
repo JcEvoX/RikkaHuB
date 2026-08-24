@@ -31,7 +31,6 @@ import me.rerere.rikkahub.ui.components.ai.QuickMessagesContent
 import me.rerere.rikkahub.ui.components.ai.SkillsContent
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.context.LocalNavController
-import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.theme.CustomColors
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -42,15 +41,6 @@ fun AssistantExtensionsPage(id: String) {
     val assistant by vm.assistant.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val skills by vm.skills.collectAsStateWithLifecycle()
-    val skillRecommending by vm.skillRecommending.collectAsStateWithLifecycle()
-    val skillRecommendMessage by vm.skillRecommendMessage.collectAsStateWithLifecycle()
-    val toaster = LocalToaster.current
-    androidx.compose.runtime.LaunchedEffect(skillRecommendMessage) {
-        skillRecommendMessage?.let {
-            toaster.show(it, type = com.dokar.sonner.ToastType.Info)
-            vm.clearSkillRecommendMessage()
-        }
-    }
     val navController = LocalNavController.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
@@ -211,13 +201,6 @@ fun AssistantExtensionsPage(id: String) {
                                         else assistant.enabledSkills - name
                                         vm.update(assistant.copy(enabledSkills = newSkills))
                                     },
-                                    onSetAll = { names ->
-                                        vm.update(assistant.copy(enabledSkills = names))
-                                    },
-                                    onAiRecommend = {
-                                        vm.recommendSkills(assistant, skills)
-                                    },
-                                    aiRecommending = skillRecommending,
                                 )
                                 TextButton(
                                     onClick = { navController.navigate(Screen.Skills) },

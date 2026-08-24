@@ -21,22 +21,15 @@ val DEFAULT_AUTO_MODEL_ID = Uuid.parse("b7055fb4-39f9-4042-a88a-0d80ed76cf08")
 
 val DEFAULT_PROVIDERS = listOf(
     ProviderSetting.OpenAI(
-        id = Uuid.parse("f1e2d3c4-b5a6-4987-8f1e-2d3c4b5a6f10"),
+        id = Uuid.parse("a8d2d463-e8c0-41f2-b89e-f5eb8e716cce"),
         name = "RikkaHub",
-        baseUrl = "https://api.openai.com/v1",
+        baseUrl = "https://api.rikka-ai.com/v1",
         apiKey = "",
         enabled = true,
         builtIn = true,
-    ),
-    // 原官方 RikkaHub 免费供应商已禁用（那是付费/限流服务，新用户误用会报 402/429）。
-    // 保留此条目仅因 Auto 模型 ID 被默认模型引用，不删除以免空引用；默认禁用、名称中性化。
-    ProviderSetting.OpenAI(
-        id = Uuid.parse("a8d2d463-e8c0-41f2-b89e-f5eb8e716cce"),
-        name = "内置(需自填Key)",
-        baseUrl = "https://api.openai.com/v1",
-        apiKey = "",
-        enabled = false,
-        builtIn = true,
+        description = {
+            Text(stringResource(R.string.rikkahub_provider_description))
+        },
         models = listOf(
             Model(
                 id = DEFAULT_AUTO_MODEL_ID,
@@ -129,6 +122,19 @@ val DEFAULT_PROVIDERS = listOf(
         )
     ),
     ProviderSetting.OpenAI(
+        id = Uuid.parse("d6c4d8c6-3f62-4ca9-a6f3-7ade6b15ecc3"),
+        name = "月之暗面",
+        baseUrl = "https://api.moonshot.cn/v1",
+        apiKey = "",
+        enabled = true,
+        builtIn = true,
+        balanceOption = BalanceOption(
+            enabled = true,
+            apiPath = "/users/me/balance",
+            resultPath = "data.available_balance"
+        )
+    ),
+    ProviderSetting.OpenAI(
         id = Uuid.parse("d5734028-d39b-4d41-9841-fd648d65440e"),
         name = "OpenRouter",
         baseUrl = "https://openrouter.ai/api/v1",
@@ -145,7 +151,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "Vercel AI Gateway",
         baseUrl = "https://ai-gateway.vercel.sh/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
         balanceOption = BalanceOption(
             enabled = true,
@@ -158,7 +164,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "小马算力",
         baseUrl = "https://api.tokenpony.cn/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
         description = {
             MarkdownBlock(
@@ -174,7 +180,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "阿里云百炼",
         baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true
     ),
     ProviderSetting.OpenAI(
@@ -182,28 +188,15 @@ val DEFAULT_PROVIDERS = listOf(
         name = "火山引擎",
         baseUrl = "https://ark.cn-beijing.volces.com/api/v3",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true
-    ),
-    ProviderSetting.OpenAI(
-        id = Uuid.parse("d6c4d8c6-3f62-4ca9-a6f3-7ade6b15ecc3"),
-        name = "月之暗面",
-        baseUrl = "https://api.moonshot.cn/v1",
-        apiKey = "",
-        enabled = true,
-        builtIn = true,
-        balanceOption = BalanceOption(
-            enabled = true,
-            apiPath = "/users/me/balance",
-            resultPath = "data.available_balance"
-        )
     ),
     ProviderSetting.OpenAI(
         id = Uuid.parse("3bc40dc1-b11a-46fa-863b-6306971223be"),
         name = "智谱AI开放平台",
         baseUrl = "https://open.bigmodel.cn/api/paas/v4",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true
     ),
     ProviderSetting.OpenAI(
@@ -211,7 +204,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "阶跃星辰",
         baseUrl = "https://api.stepfun.com/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true
     ),
     ProviderSetting.OpenAI(
@@ -219,7 +212,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "302.AI",
         baseUrl = "https://api.302.ai/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
         description = {
             Text(
@@ -239,7 +232,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "腾讯Hunyuan",
         baseUrl = "https://api.hunyuan.cloud.tencent.com/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true
     ),
     ProviderSetting.OpenAI(
@@ -247,7 +240,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "xAI",
         baseUrl = "https://api.x.ai/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
         useResponseApi = true,
     ),
@@ -256,7 +249,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "随想AI网关",
         baseUrl = "https://sui-xiang.com/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
         description = {
             Text(
@@ -282,7 +275,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "MiniMax",
         baseUrl = "https://api.minimaxi.com/anthropic/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
     ),
     ProviderSetting.OpenAI(
@@ -290,7 +283,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "MIMO",
         baseUrl = "https://api.xiaomimimo.com/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
     ),
     ProviderSetting.OpenAI(
@@ -298,7 +291,7 @@ val DEFAULT_PROVIDERS = listOf(
         name = "AckAI",
         baseUrl = "https://ackai.fun/v1",
         apiKey = "",
-        enabled = true,
+        enabled = false,
         builtIn = true,
         description = {
             Text(

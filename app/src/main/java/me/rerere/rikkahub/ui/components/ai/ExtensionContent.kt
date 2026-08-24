@@ -116,48 +116,12 @@ fun SkillsContent(
     onToggle: (String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onManage: (() -> Unit)? = null,
-    // RikkaHub：批量操作。onSetAll 传入新的启用集合（全开/全关）；
-    // onAiRecommend 触发"AI 分析需求推荐技能"；aiRecommending 为 true 时显示加载中。
-    onSetAll: ((Set<String>) -> Unit)? = null,
-    onAiRecommend: (() -> Unit)? = null,
-    aiRecommending: Boolean = false,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (onSetAll != null || onAiRecommend != null) {
-            item(key = "__skill_batch_actions__") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (onAiRecommend != null) {
-                        TextButton(onClick = onAiRecommend, enabled = !aiRecommending) {
-                            Text(if (aiRecommending) "分析中…" else "AI 推荐技能")
-                        }
-                    }
-                    if (onSetAll != null) {
-                        TextButton(
-                            onClick = { onSetAll(skills.map { it.name }.toSet()) },
-                            enabled = !aiRecommending,
-                        ) {
-                            Text("全部启用")
-                        }
-                        TextButton(
-                            onClick = { onSetAll(emptySet()) },
-                            enabled = !aiRecommending,
-                        ) {
-                            Text("全部关闭")
-                        }
-                    }
-                }
-            }
-        }
-        items(skills, key = { it.name }) { skill ->
+        items(skills, key = { it.skillDir.absolutePath }) { skill ->
             ListItem(
                 headlineContent = { Text(skill.name) },
                 supportingContent = if (skill.description.isNotBlank()) {
