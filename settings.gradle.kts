@@ -24,11 +24,12 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        // 国内镜像优先，加速依赖下载（官方仓库作为回退保留在后面）
-        maven("https://maven.aliyun.com/repository/google")
-        maven("https://maven.aliyun.com/repository/public")
+        // Google 官方 Maven 优先（最可靠，避免阿里云镜像 502/404 挡路）
         google()
         mavenCentral()
+        // 国内镜像作为回退加速（阿里云镜像曾返回 502，故不能放最前）
+        maven("https://maven.aliyun.com/repository/google")
+        maven("https://maven.aliyun.com/repository/public")
         maven("https://jitpack.io")
         mavenLocal()
     }
