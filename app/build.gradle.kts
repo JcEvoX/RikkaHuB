@@ -73,6 +73,12 @@ android {
             optimization {
                 enable = true
             }
+            // R8 混淆需引用规则文件，否则 keep 规则不生效，
+            // 反射构造的 ViewModel（Koin）会被混淆导致 release 一装就崩
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             buildConfigField("String", "VERSION_NAME", "\"${android.defaultConfig.versionName}\"")
             buildConfigField("String", "VERSION_CODE", "\"${android.defaultConfig.versionCode}\"")
         }
