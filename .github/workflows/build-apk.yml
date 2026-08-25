@@ -1,7 +1,9 @@
 name: Build Test APK
 
-# 自用测试打包：手动点击即可触发，也会在 push/PR 时自动构建；产出可直接安装的 debug APK。
-# 已移除 Firebase，无需 google-services.json；debug 构建用自动签名，无需任何密钥。
+# 自用测试打包：手动点击即可触发，也会在 push/PR 时自动构建。
+# 已移除 Firebase，无需 google-services.json。
+# master 分支产出 release APK（CI 自动生成临时密钥签名，体积小）；
+# 其他分支（trae/** 等）产出 debug APK（自动签名，无需密钥，便于测试/日志）。
 on:
   push:
     branches: [master, main, trae/**]  # push 到 master/main 或本仓库工作分支自动出包
@@ -35,6 +37,8 @@ jobs:
       GRADLE_OPTS: >-
         -Dorg.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1g
         -Dfile.encoding=UTF-8
+      # master/main 分支打 release（体积小、可上架）；其余分支打 debug 便于测试
+      IS_RELEASE: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
 
     steps:
       - name: 检出代码（含子模块）
@@ -145,31 +149,66 @@ jobs:
       - name: Gradle 配置阶段预热（早失败、早看到配置问题）
         run: ./gradlew :app:help --no-daemon --no-configuration-cache --stacktrace
 
-      - name: 打包 Debug APK
+      - name: 生成 release 临时签名密钥（仅 master/main）
+        # release 需要签名证书。CI 自动生成临时 keystore，写入 local.properties 供 Gradle 读取。
+        # 注意：临时签名不固定，无法覆盖安装正式版，也不用于应用商店上架；仅保证能打包出可安装的 release。
+        if: ${{ env.IS_RELEASE == 'true' }}
         run: |
-          ./gradlew assembleDebug \
-            --no-daemon \
-            --no-configuration-cache \
-            --stacktrace \
-            -Prikkahub.skipWebBuild=true
+          STORE="${{ runner.temp }}/release-keystore.jks"
+          if command -v keytool >/dev/null 2>&1; then
+            keytool -genkeypair -v \
+              -keystore "$STORE" \
+              -storepass rikkahub_release -keypass rikkahub_release \
+              -alias rikkahub -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=RikkaHub, OU=CI, O=rikkahub, L=CN, C=CN"
+            # 追加签名配置到已含 sdk.dir 的 local.properties
+            printf '\nstoreFile=%s\nstorePassword=rikkahub_release\nkeyAlias=rikkahub\nkeyPassword=rikkahub_release\n' "$STORE" >> local.properties
+            echo "✅ release keystore generated at $STORE"
+            echo "storeFile=$STORE" >> "$GITHUB_ENV"
+          else
+            echo "no keytool found; leaving release keystore blank"
+          fi
+
+      - name: 打包 APK（master 打 release，其余分支打 debug）
+        run: |
+          if [ "$IS_RELEASE" = "true" ]; then
+            echo "==> 构建 Release..."
+            ./gradlew assembleRelease \
+              --no-daemon \
+              --no-configuration-cache \
+              --stacktrace \
+              -Prikkahub.skipWebBuild=true
+          else
+            echo "==> 构建 Debug..."
+            ./gradlew assembleDebug \
+              --no-daemon \
+              --no-configuration-cache \
+              --stacktrace \
+              -Prikkahub.skipWebBuild=true
+          fi
 
       # 项目启用了 ABI 拆分，会产出多个 APK：
-      #   app-universal-debug.apk  —— 通用包，兼容所有手机，装这个最省心（推荐）
-      #   app-arm64-v8a-debug.apk  —— 仅 64 位 ARM 手机（体积更小）
-      #   app-x86_64-debug.apk     —— 仅 x86_64 设备/模拟器
+      #   app-universal-{debug|release}.apk  —— 通用包，兼容所有手机，装这个最省心（推荐）
+      #   app-arm64-v8a-{debug|release}.apk  —— 仅 64 位 ARM 手机（体积更小）
+      #   app-x86_64-{debug|release}.apk     —— 仅 x86_64 设备/模拟器
       - name: 列出产物
         run: |
           set +e
+          if [ "$IS_RELEASE" = "true" ]; then
+            ls -lh app/build/outputs/apk/release/ 2>/dev/null
+          fi
           ls -lh app/build/outputs/apk/debug/ 2>/dev/null
           echo "--- mapping (if any) ---"
           find app/build/outputs -maxdepth 5 -type f 2>/dev/null | head -40
 
-      # 上传 APK，构建完成后在本次运行页面底部 "Artifacts" 处下载 rikkahub-debug-apk.zip
+      # 上传 APK，构建完成后在本次运行页面底部 "Artifacts" 处下载
       - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: rikkahub-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: rikkahub-${{ env.IS_RELEASE == 'true' && 'release' || 'debug' }}-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -177,7 +216,7 @@ jobs:
         if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: rikkahub-debug-mapping
+          name: rikkahub-${{ env.IS_RELEASE == 'true' && 'release' || 'debug' }}-mapping
           path: app/build/outputs/mapping/**/*
           if-no-files-found: ignore
           retention-days: 7
