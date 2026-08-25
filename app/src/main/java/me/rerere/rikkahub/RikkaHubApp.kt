@@ -29,6 +29,7 @@ import me.rerere.rikkahub.di.dataSourceModule
 import me.rerere.rikkahub.di.repositoryModule
 import me.rerere.rikkahub.di.viewModelModule
 import me.rerere.rikkahub.data.files.FilesManager
+import me.rerere.rikkahub.data.files.SkillManager
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.service.WebServerService
 import me.rerere.rikkahub.utils.CrashHandler
@@ -81,6 +82,9 @@ class RikkaHubApp : Application() {
 
         // sync upload files to DB
         syncManagedFiles()
+
+        // 首次启动 / 版本升级时把 assets/skills 内置技能复制到运行时目录
+        installBundledSkills()
 
         // Start WebServer if enabled in settings
         startWebServerIfEnabled()
@@ -140,6 +144,16 @@ class RikkaHubApp : Application() {
                 if (dir.exists()) {
                     dir.deleteRecursively()
                 }
+            }
+        }
+    }
+
+    private fun installBundledSkills() {
+        get<AppScope>().launch(Dispatchers.IO) {
+            runCatching {
+                get<SkillManager>().installBundledSkillsIfNeeded()
+            }.onFailure {
+                Log.e(TAG, "installBundledSkills failed", it)
             }
         }
     }
