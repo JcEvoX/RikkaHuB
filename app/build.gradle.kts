@@ -170,11 +170,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.material3.adaptive.navigation3)
 
-    // Firebase (仅依赖 API，不应用 google-services/crashlytics 插件 — 无 JSON 下仅 no-op)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-    implementation(libs.firebase.crashlytics)
-
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 
