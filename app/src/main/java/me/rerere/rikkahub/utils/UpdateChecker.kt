@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -58,16 +57,25 @@ class UpdateChecker(
                         val release = json.decodeFromString<GitHubRelease>(response.body.string())
                         release.toUpdateInfo()
                     } else {
-                        throw Exception("Failed to fetch update info")
+                        // 尚无 Release（如 /releases/latest 返回 404）时视为“无可用更新”
+                        noUpdate()
                     }
                 } catch (e: Exception) {
-                    throw Exception("Failed to fetch update info", e)
+                    // 网络异常 / 解析失败同样降级为“无更新”，避免一直弹出“检查更新失败”
+                    noUpdate()
                 }
             )
         )
-    }.catch {
-        emit(UiState.Error(it))
     }.flowOn(Dispatchers.IO)
+
+    /** 返回一个“当前版本”的占位信息，使 UI 判定 latest == current，即不提示有更新。 */
+    private fun noUpdate(): UpdateInfo =
+        UpdateInfo(
+            version = BuildConfig.VERSION_NAME,
+            publishedAt = "",
+            changelog = "",
+            downloads = emptyList(),
+        )
 
     fun downloadUpdate(context: Context, download: UpdateDownload) {
         runCatching {
