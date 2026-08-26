@@ -9,10 +9,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import me.rerere.common.http.await
@@ -21,7 +21,10 @@ import me.rerere.rikkahub.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-private const val API_URL = "https://updates.rikka-ai.com/"
+// 更新源改为本仓库（JcEvoX/RikkaHuB）的 GitHub Releases，不再监听官方 updates.rikka-ai.com，
+// 避免拉到官方包导致签名不同、无法覆盖安装的问题。
+private const val API_URL =
+    "https://api.github.com/repos/JcEvoX/RikkaHuB/releases/latest"
 
 class UpdateChecker(
     private val client: OkHttpClient,
@@ -51,18 +54,28 @@ class UpdateChecker(
                             .build()
                     ).await()
                     if (response.isSuccessful) {
-                        json.decodeFromString<UpdateInfo>(response.body.string())
+                        val release = json.decodeFromString<GitHubRelease>(response.body.string())
+                        release.toUpdateInfo()
                     } else {
-                        throw Exception("Failed to fetch update info")
+                        // 尚无 Release（如 /releases/latest 返回 404）时视为“无可用更新”
+                        noUpdate()
                     }
                 } catch (e: Exception) {
-                    throw Exception("Failed to fetch update info", e)
+                    // 网络异常 / 解析失败同样降级为“无更新”，避免一直弹出“检查更新失败”
+                    noUpdate()
                 }
             )
         )
-    }.catch {
-        emit(UiState.Error(it))
     }.flowOn(Dispatchers.IO)
+
+    /** 返回一个“当前版本”的占位信息，使 UI 判定 latest == current，即不提示有更新。 */
+    private fun noUpdate(): UpdateInfo =
+        UpdateInfo(
+            version = BuildConfig.VERSION_NAME,
+            publishedAt = "",
+            changelog = "",
+            downloads = emptyList(),
+        )
 
     fun downloadUpdate(context: Context, download: UpdateDownload) {
         runCatching {
@@ -104,6 +117,55 @@ data class UpdateInfo(
     val changelog: String,
     val downloads: List<UpdateDownload>
 )
+
+/**
+ * GitHub Releases API (`/repos/{owner}/{repo}/releases/latest`) 响应结构，仅保留所需字段。
+ */
+@Serializable
+private data class GitHubRelease(
+    @SerialName("tag_name") val tagName: String,
+    @SerialName("published_at") val publishedAt: String,
+    val body: String? = null,
+    val assets: List<GitHubAsset> = emptyList(),
+)
+
+@Serializable
+private data class GitHubAsset(
+    val name: String,
+    @SerialName("browser_download_url") val browserDownloadUrl: String,
+    val size: Long,
+)
+
+/** 将 GitHub Release 映射为内部 UpdateInfo；版本号去掉 tag 前导 "v"（如 v2.4.12 -> 2.4.12）。 */
+private fun GitHubRelease.toUpdateInfo(): UpdateInfo {
+    val downloads = assets
+        .filter { it.name.endsWith(".apk") }
+        .map {
+            UpdateDownload(
+                name = it.name,
+                url = it.browserDownloadUrl,
+                size = it.size.formatBytes(),
+            )
+        }
+    return UpdateInfo(
+        version = tagName.removePrefix("v"),
+        publishedAt = publishedAt,
+        changelog = body.orEmpty(),
+        downloads = downloads,
+    )
+}
+
+/** 把字节数格式化为可读大小（如 45.6 MB）。 */
+private fun Long.formatBytes(): String {
+    val units = listOf("B", "KB", "MB", "GB")
+    var value = this.toDouble()
+    var unit = 0
+    while (value >= 1024 && unit < units.size - 1) {
+        value /= 1024.0
+        unit++
+    }
+    return "%.1f %s".format(value, units[unit])
+}
 
 /**
  * 版本号值类，封装版本号字符串并提供比较功能
