@@ -288,7 +288,6 @@ class SkillManager(
                 name = name,
                 description = description,
                 compatibility = frontmatter["compatibility"],
-                allowedTools = frontmatter["allowed-tools"]?.split(" ")?.filter { it.isNotBlank() } ?: emptyList(),
                 skillDir = skillDir,
             )
         }.getOrElse {
@@ -302,7 +301,6 @@ data class SkillMetadata(
     val name: String,
     val description: String,
     val compatibility: String? = null,
-    val allowedTools: List<String> = emptyList(),
     val skillDir: File,
 ) {
     val skillFile: File get() = skillDir.resolve("SKILL.md")
