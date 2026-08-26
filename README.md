@@ -30,6 +30,8 @@ RikkaHub 使用 **AGPL-3.0** 许可证发布，因此本项目（RikkaHub）同�
 - **内置技能库**：打包了一批安卓逆向/安全分析技能文档。
 - **高级功能**：AI 生成悬浮球、消息保活前台服务、自动压缩会话、持续工作等。
 - **界面与品牌**：主题紫色主题、首页仪表盘、底部导航等 UI 调整。
+- **自定义更新源**：更新检测指向本仓库 GitHub Releases（`JcEvoX/RikkaHuB`），不再监听官方
+  `updates.rikka-ai.com`，避免拉到官方包（签名不同）导致覆盖安装失败。
 - 品牌信息（应用名、图标、包名 applicationId）改为RikkaHub。
 
 其余的核心能力（多供应商、模型管理、MCP 客户端、TTS/ASR、Markdown、备份同步等）
@@ -44,8 +46,45 @@ RikkaHub 使用 **AGPL-3.0** 许可证发布，因此本项目（RikkaHub）同�
 ./gradlew assembleRelease
 ```
 
-web-ui 前端模块需先安装依赖（pnpm）。详见各模块说明与原 RikkaHub 文档
-（[AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md)）。
+web-ui 前端模块需先安装依赖（pnpm，见 [web-ui/README](web-ui/README.md) 与 [AGENTS.md](AGENTS.md)）。
+
+### 更新源
+
+应用内更新检查读取本仓库 **GitHub Releases**（`https://api.github.com/repos/JcEvoX/RikkaHuB/releases/latest`）。
+发布新版本时，在仓库 Releases 页面创建一个 Release：`Tag` 用 `v{版本号}`（如 `v2.4.13`），并在附件中上传
+release APK（`app-universal-release.apk` 或 `app-arm64-v8a-release.apk` 等，以 `.apk` 结尾即会被识别）。
+App 检测到该 Release 后即会提示更新并提供下载。
+
+### 固定签名
+
+为使每次 CI 打出的 release APK 用同一密钥签名（这样才能覆盖安装、无需卸载重装），请在仓库
+**Settings → Secrets and variables → Actions** 配置固定密钥：
+
+1. 生成本地 keystore（仅需一次，妥善保管）：
+
+   ```bash
+   keytool -genkeypair -v \
+     -keystore release.jks \
+     -alias rikkahub -keyalg RSA -keysize 2048 -validity 10000 \
+     -storepass 你的口令 -keypass 你的口令 \
+     -dname "CN=RikkaHub, OU=CI, O=rikkahub, L=CN, C=CN"
+   ```
+
+2. 用下面的命令生成 4 个 Secret 的值（口令换成你自己的）：
+
+   ```bash
+   base64 -w0 release.jks                        # RELEASE_KEYSTORE_BASE64
+   echo -n 你的store口令                            # RELEASE_STORE_PASSWORD
+   echo -n rikkahub                                # RELEASE_KEY_ALIAS
+   echo -n 你的key口令                              # RELEASE_KEY_PASSWORD
+   ```
+
+3. 在仓库 Secrets 里分别创建上述 4 个项目，值粘贴对应输出。
+
+配置好后，master 分支的 CI 会用该固定密钥签名 release 包；未配置时则回退到临时密钥（签名不固定，
+只能新装、无法覆盖安装正式版）。
+
+> 本地开发也可把 `storeFile/storePassword/keyAlias/keyPassword` 写进 `local.properties` 直接复用同一密钥，无需上传到 GitHub。
 
 ---
 

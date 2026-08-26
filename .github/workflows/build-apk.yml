@@ -2,8 +2,18 @@ name: Build Test APK
 
 # 自用测试打包：手动点击即可触发，也会在 push/PR 时自动构建。
 # 已移除 Firebase，无需 google-services.json。
-# master 分支产出 release APK（CI 自动生成临时密钥签名，体积小）；
+# master 分支产出 release APK（固定密钥签名，可覆盖安装）；
 # 其他分支（trae/** 等）产出 debug APK（自动签名，无需密钥，便于测试/日志）。
+#
+# release 签名密钥说明：
+#   为了让每次 CI 打出的 release APK 签名一致（可覆盖安装、不卸载重装），
+#   在仓库 Settings -> Secrets and variables -> Actions 里配置以下 Secret：
+#     RELEASE_KEYSTORE_BASE64       # 固定 keystore 文件的 base64 内容
+#     RELEASE_STORE_PASSWORD        # keystore 口令
+#     RELEASE_KEY_ALIAS             # 别名
+#     RELEASE_KEY_PASSWORD          # 别名口令
+#   若未配置，则回退到每次运行时临时生成的密钥（签名不固定，无法覆盖安装）。
+# 生成本地 keystore + 获取 base64 的具体命令见 README「固定签名」一节。
 on:
   push:
     branches: [master, main, trae/**]  # push 到 master/main 或本仓库工作分支自动出包
@@ -149,22 +159,30 @@ jobs:
       - name: Gradle 配置阶段预热（早失败、早看到配置问题）
         run: ./gradlew :app:help --no-daemon --no-configuration-cache --stacktrace
 
-      - name: 生成 release 临时签名密钥（仅 master/main）
-        # release 需要签名证书。CI 自动生成临时 keystore，写入 local.properties 供 Gradle 读取。
-        # 注意：临时签名不固定，无法覆盖安装正式版，也不用于应用商店上架；仅保证能打包出可安装的 release。
+      - name: 配置 release 签名密钥（固定密钥优先，缺失时回退临时密钥）
+        # release 需要签名证书。优先使用仓库 Secrets 里的固定 keystore（签名一致、可覆盖安装），
+        # 写入 local.properties 供 Gradle 读取；未配置则回退到临时密钥（仅保证能出可安装包）。
         if: ${{ env.IS_RELEASE == 'true' }}
         run: |
           STORE="${{ runner.temp }}/release-keystore.jks"
-          if command -v keytool >/dev/null 2>&1; then
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            # 从 Secret 还原固定 keystore，并用对应口令配置签名
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$STORE"
+            printf '\nstoreFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$STORE" \
+              "${{ secrets.RELEASE_STORE_PASSWORD }}" \
+              "${{ secrets.RELEASE_KEY_ALIAS }}" \
+              "${{ secrets.RELEASE_KEY_PASSWORD }}" >> local.properties
+            echo "✅ fixed release keystore loaded from secrets"
+          elif command -v keytool >/dev/null 2>&1; then
+            # 兜底：无固定密钥时生成临时密钥（签名不固定，无法覆盖安装正式版）
             keytool -genkeypair -v \
               -keystore "$STORE" \
               -storepass rikkahub_release -keypass rikkahub_release \
               -alias rikkahub -keyalg RSA -keysize 2048 -validity 10000 \
               -dname "CN=RikkaHub, OU=CI, O=rikkahub, L=CN, C=CN"
-            # 追加签名配置到已含 sdk.dir 的 local.properties
             printf '\nstoreFile=%s\nstorePassword=rikkahub_release\nkeyAlias=rikkahub\nkeyPassword=rikkahub_release\n' "$STORE" >> local.properties
-            echo "✅ release keystore generated at $STORE"
-            echo "storeFile=$STORE" >> "$GITHUB_ENV"
+            echo "⚠️ no fixed keystore in secrets; fallback to temporary keystore (cannot overwrite install)"
           else
             echo "no keytool found; leaving release keystore blank"
           fi
