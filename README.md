@@ -28,8 +28,7 @@ RikkaHub 使用 **AGPL-3.0** 许可证发布，因此本项目（RikkaHub）同�
 - **逆向工作台**：预置连接本机逆向 MCP 后端（MT 管理器 / SOMCP / ProxyPin），
   一键探测端口，配套逆向技能与 system prompt。
 - **内置技能库**：打包了一批安卓逆向/安全分析技能文档。
-- **高级功能**：AI 生成悬浮球、消息保活前台服务、自动压缩会话、持续工作等。
-- **界面调整**：首页仪表盘、底部导航等 UI 调整。
+- **高级功能**：AI 生成悬浮球、消息保活前台服务。
 - **自定义更新源**：更新检测指向本仓库 GitHub Releases（`JcEvoX/RikkaHuB`），不再监听官方
   `updates.rikka-ai.com`，避免拉到官方包（签名不同）导致覆盖安装失败。
 - 品牌信息（应用名、图标、包名 applicationId）改为RikkaHub。
