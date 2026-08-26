@@ -139,6 +139,52 @@ fun Context.getActivity(): Activity? {
     return null
 }
 
+/**
+ * 判断某个包是否已安装。
+ */
+fun Context.isPackageInstalled(packageName: String): Boolean = runCatching {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+    } else {
+        @Suppress("DEPRECATION")
+        packageManager.getPackageInfo(packageName, 0)
+    }
+    true
+}.getOrDefault(false)
+
+/**
+ * 尝试打开指定包名的应用；若未安装则跳转到应用市场对应详情页（失败再退回网页市场）。
+ *
+ * 二开：逆向工作台用它来一键拉起 MT 管理器 / SOMCP。
+ *
+ * @return 已安装并成功拉起返回 true；未安装（已跳市场或网页）返回 false。
+ */
+fun Context.launchOrOpenMarket(packageName: String): Boolean {
+    packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
+        runCatching {
+            startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return true
+        }
+    }
+    // 未安装：优先跳应用市场，失败退回网页
+    runCatching {
+        startActivity(
+            Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }.onFailure {
+        runCatching {
+            startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    "https://play.google.com/store/apps/details?id=$packageName".toUri()
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+    return false
+}
+
 fun Context.getComponentActivity(): ComponentActivity? {
     var context = this
     while (context is ContextWrapper) {

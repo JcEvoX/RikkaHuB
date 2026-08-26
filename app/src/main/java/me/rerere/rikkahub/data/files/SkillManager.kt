@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.data.files
 
 import android.content.Context
+import android.content.res.AssetManager
 import android.util.Log
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,97 @@ class SkillManager(
 ) {
     companion object {
         private const val TAG = "SkillManager"
+
+        // 内置技能：以散文件形式打包在 assets/skills/<技能名>/... 中，
+        // 首次启动或版本升级时复制到用户的 skills 运行时目录，实现开箱即用。
+        private const val BUNDLED_SKILLS_ASSET_DIR = "skills"
+        private const val BUNDLED_PREFS = "bundled_skills"
+        private const val BUNDLED_VERSION_KEY = "installed_version"
+
+        // 每次更新 assets/skills/ 里的内置技能后，把这个版本号 +1，
+        // 即可让老用户在下次启动时补齐新增/更新的内置技能。
+        private const val BUNDLED_SKILLS_VERSION = 5
+    }
+
+    /**
+     * 首次启动（或内置技能版本升级）时，将 assets/skills/ 下预置的技能散文件复制到用户的 skills
+     * 运行时目录，让用户打开 App 即可在技能列表看到并直接开启，省去手动导入。
+     *
+     * 策略：
+     * - 用 SharedPreferences 记录已安装的内置版本号，只有版本号落后于 [BUNDLED_SKILLS_VERSION] 时才复制。
+     * - 仅当目标技能目录不存在时才写入，绝不覆盖用户已有的同名技能（避免抹掉用户的本地修改）。
+     * - 复用与运行时相同的 [SkillPaths] 路径校验，防止目录穿越。
+     */
+    suspend fun installBundledSkillsIfNeeded() = withContext(Dispatchers.IO) {
+        val prefs = context.getSharedPreferences(BUNDLED_PREFS, Context.MODE_PRIVATE)
+        val installedVersion = prefs.getInt(BUNDLED_VERSION_KEY, 0)
+        if (installedVersion >= BUNDLED_SKILLS_VERSION) return@withContext
+
+        runCatching {
+            val skillsDir = getSkillsDir()
+            val assets = context.assets
+
+            // assets/skills 下的每个一级子目录即一个内置技能
+            val bundledSkillNames = assets.list(BUNDLED_SKILLS_ASSET_DIR)?.toList() ?: emptyList()
+            var installedSkills = 0
+            var skippedSkills = 0
+
+            for (skillName in bundledSkillNames) {
+                val skillDir = SkillPaths.resolveSkillDir(skillsDir, skillName)
+                if (skillDir == null) {
+                    Log.w(TAG, "installBundledSkills: illegal skill name '$skillName', skipped")
+                    continue
+                }
+                // 已存在则跳过，保护用户的本地修改
+                if (skillDir.exists()) {
+                    skippedSkills++
+                    continue
+                }
+                val assetSkillPath = "$BUNDLED_SKILLS_ASSET_DIR/$skillName"
+                if (copyAssetDir(assets, assetSkillPath, skillDir)) {
+                    installedSkills++
+                }
+            }
+
+            prefs.edit().putInt(BUNDLED_VERSION_KEY, BUNDLED_SKILLS_VERSION).apply()
+            Log.i(TAG, "installBundledSkills: installed $installedSkills skills, skipped $skippedSkills existing")
+        }.onFailure {
+            Log.e(TAG, "installBundledSkills failed", it)
+        }
+    }
+
+    /**
+     * 递归复制 assets 目录到目标文件夹。返回是否至少写入了一个文件。
+     *
+     * AssetManager 无法直接区分文件与目录：list() 返回非空视为目录，为空则尝试当作文件打开。
+     */
+    private fun copyAssetDir(assets: AssetManager, assetPath: String, targetDir: File): Boolean {
+        val children = runCatching { assets.list(assetPath) }.getOrNull() ?: emptyArray()
+        var wroteAny = false
+
+        if (children.isEmpty()) {
+            // 叶子节点：当作文件复制
+            runCatching {
+                assets.open(assetPath).use { input ->
+                    targetDir.parentFile?.mkdirs()
+                    targetDir.outputStream().use { output -> input.copyTo(output) }
+                }
+                wroteAny = true
+            }.onFailure {
+                Log.w(TAG, "copyAssetDir: failed to copy file '$assetPath'", it)
+            }
+            return wroteAny
+        }
+
+        // 目录：递归处理每个子项
+        targetDir.mkdirs()
+        for (child in children) {
+            val childTarget = File(targetDir, child)
+            if (copyAssetDir(assets, "$assetPath/$child", childTarget)) {
+                wroteAny = true
+            }
+        }
+        return wroteAny
     }
 
     fun getSkillsDir(): File {

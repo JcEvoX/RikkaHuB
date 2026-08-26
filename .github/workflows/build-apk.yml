@@ -1,0 +1,233 @@
+name: Build Test APK
+
+# 自用测试打包：手动点击即可触发，也会在 push/PR 时自动构建。
+# 已移除 Firebase，无需 google-services.json。
+# master 分支产出 release APK（CI 自动生成临时密钥签名，体积小）；
+# 其他分支（trae/** 等）产出 debug APK（自动签名，无需密钥，便于测试/日志）。
+on:
+  push:
+    branches: [master, main, trae/**]  # push 到 master/main 或本仓库工作分支自动出包
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [master, main]           # 任何合入 master/main 的 PR 自动构建
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  workflow_dispatch:   # 仍保留在 GitHub 网页 Actions 页面手动点击 "Run workflow" 触发
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # AGP 9.3 / Gradle 9.5 要求 JDK 21+；Kotlin 2.4.10 也更适配 21/25
+      JAVA_VERSION: '21'
+      ANDROID_COMPILE_SDK: '37'
+      ANDROID_BUILD_TOOLS: '37.0.0'
+      # Gradle 构建期跳过 web-ui 的 pnpm install/build（workflow 前面步骤已手动构建并 copy 到 static 目录）
+      RIKKAHUB_SKIP_WEB_BUILD: 'true'
+      GRADLE_OPTS: >-
+        -Dorg.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1g
+        -Dfile.encoding=UTF-8
+      # master/main 分支打 release（体积小、可上架）；其余分支打 debug 便于测试
+      IS_RELEASE: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+
+    steps:
+      - name: 检出代码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+          # gradle 缓存交给后面独立的 actions/cache 统一管理（含 konan），避免双重 restore
+          cache: 'gradle'
+
+      # web 模块的 preBuild 会执行前端构建，需要 Node + pnpm
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+          run_install: false
+
+      - name: 安装 Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: 'web-ui/pnpm-lock.yaml'
+
+      - name: 安装 web-ui 依赖（带重试，3次内下载失败自动重试）
+        working-directory: web-ui
+        run: |
+          for i in 1 2 3; do
+            echo "=== pnpm install attempt $i ==="
+            pnpm install --frozen-lockfile --prefer-offline && break
+            [ $i -lt 3 ] && { echo "install failed, retrying in 10s..."; sleep 10; } || exit 1
+          done
+
+      - name: web-ui 构建（失败时回退：若 web 已有静态资源则跳过，允许构建继续）
+        id: web_build
+        continue-on-error: true
+        working-directory: web-ui
+        run: |
+          for i in 1 2 3; do
+            echo "=== pnpm build attempt $i ==="
+            pnpm run build && break
+            [ $i -lt 3 ] && { echo "build failed, retrying in 10s..."; sleep 10; }
+          done
+          # pnpm run build 已通过 copy.ts 把 web-ui/build/client 复制到 ../web/src/main/resources/static/
+          STATIC_COUNT=$(find ../web/src/main/resources/static -type f 2>/dev/null | wc -l || echo 0)
+          echo "After web build: static resources count = $STATIC_COUNT"
+          # 只要静态资源已存在（>=10）就允许 gradle 阶段跳过并继续
+          if [ "$STATIC_COUNT" -ge 10 ]; then
+            echo "✅ Static resources ready."
+            exit 0
+          else
+            echo "❌ Not enough static resources after build. Failing step."
+            exit 1
+          fi
+
+      - name: 兜底：如果 web-ui 构建失败但 web 模块已有静态资源则继续，否则报错
+        if: ${{ steps.web_build.outcome != 'success' }}
+        run: |
+          STATIC_COUNT=$(find web/src/main/resources/static -type f 2>/dev/null | wc -l || echo 0)
+          echo "Existing static resources count: $STATIC_COUNT"
+          if [ "$STATIC_COUNT" -ge 10 ]; then
+            echo "⚠️ web-ui build failed but cached static resources exist, proceeding (web server will serve them)."
+          else
+            echo "❌ web-ui build failed AND no cached static resources exist, cannot build web module."
+            exit 1
+          fi
+
+      - name: Gradle 缓存（含 wrapper + 构建缓存 + konan）
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.konan
+          key: ${{ runner.os }}-gradle-jdk21-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle/libs.versions.toml', '**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-jdk21-
+            ${{ runner.os }}-gradle-
+
+      - name: 配置 Android SDK（用 runner 预装 SDK，不再下载）
+        # ubuntu-latest 已预装 android-37.0 / build-tools 37.0.0 / platform-tools，
+        # 无需 android-actions/setup-android 额外下载（此前该 action 因 cmdline-tools 版本失效而失败）
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME" 2>&1 | head
+          ls "$ANDROID_HOME/platforms" 2>&1 | head
+          ls "$ANDROID_HOME/build-tools" 2>&1 | head
+
+      - name: 接受 SDK 许可（防止 AGP 首次运行提示接受 license）
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          # AGP 通过 ANDROID_HOME 解析；再显式写 local.properties 双保险
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
+
+      - name: 确保 gradlew 可执行 + LF 换行
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew --version
+
+      - name: Gradle 配置阶段预热（早失败、早看到配置问题）
+        run: ./gradlew :app:help --no-daemon --no-configuration-cache --stacktrace
+
+      - name: 生成 release 临时签名密钥（仅 master/main）
+        # release 需要签名证书。CI 自动生成临时 keystore，写入 local.properties 供 Gradle 读取。
+        # 注意：临时签名不固定，无法覆盖安装正式版，也不用于应用商店上架；仅保证能打包出可安装的 release。
+        if: ${{ env.IS_RELEASE == 'true' }}
+        run: |
+          STORE="${{ runner.temp }}/release-keystore.jks"
+          if command -v keytool >/dev/null 2>&1; then
+            keytool -genkeypair -v \
+              -keystore "$STORE" \
+              -storepass rikkahub_release -keypass rikkahub_release \
+              -alias rikkahub -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=RikkaHub, OU=CI, O=rikkahub, L=CN, C=CN"
+            # 追加签名配置到已含 sdk.dir 的 local.properties
+            printf '\nstoreFile=%s\nstorePassword=rikkahub_release\nkeyAlias=rikkahub\nkeyPassword=rikkahub_release\n' "$STORE" >> local.properties
+            echo "✅ release keystore generated at $STORE"
+            echo "storeFile=$STORE" >> "$GITHUB_ENV"
+          else
+            echo "no keytool found; leaving release keystore blank"
+          fi
+
+      - name: 打包 APK（master 打 release，其余分支打 debug）
+        run: |
+          if [ "$IS_RELEASE" = "true" ]; then
+            echo "==> 构建 Release..."
+            ./gradlew assembleRelease \
+              --no-daemon \
+              --no-configuration-cache \
+              --stacktrace \
+              -Prikkahub.skipWebBuild=true
+          else
+            echo "==> 构建 Debug..."
+            ./gradlew assembleDebug \
+              --no-daemon \
+              --no-configuration-cache \
+              --stacktrace \
+              -Prikkahub.skipWebBuild=true
+          fi
+
+      # 项目启用了 ABI 拆分，会产出多个 APK：
+      #   app-universal-{debug|release}.apk  —— 通用包，兼容所有手机，装这个最省心（推荐）
+      #   app-arm64-v8a-{debug|release}.apk  —— 仅 64 位 ARM 手机（体积更小）
+      #   app-x86_64-{debug|release}.apk     —— 仅 x86_64 设备/模拟器
+      - name: 列出产物
+        run: |
+          set +e
+          if [ "$IS_RELEASE" = "true" ]; then
+            ls -lh app/build/outputs/apk/release/ 2>/dev/null
+          fi
+          ls -lh app/build/outputs/apk/debug/ 2>/dev/null
+          echo "--- mapping (if any) ---"
+          find app/build/outputs -maxdepth 5 -type f 2>/dev/null | head -40
+
+      # 上传 APK，构建完成后在本次运行页面底部 "Artifacts" 处下载
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rikkahub-${{ env.IS_RELEASE == 'true' && 'release' || 'debug' }}-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 上传 Mapping（如有）
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rikkahub-${{ env.IS_RELEASE == 'true' && 'release' || 'debug' }}-mapping
+          path: app/build/outputs/mapping/**/*
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: 构建失败时输出诊断
+        if: failure()
+        run: |
+          echo "=== last 150 gradle log lines ==="
+          find . -name "*.log" -path "*gradle*" 2>/dev/null | while read -r f; do
+            echo "--- $f ---"
+            tail -n 150 "$f"
+          done
+          echo "=== diagnostic: ./gradlew dependencies --configuration debugRuntimeClasspath ==="
+          ./gradlew :app:dependencies --configuration debugRuntimeClasspath --no-daemon 2>&1 | tail -n 80 || true

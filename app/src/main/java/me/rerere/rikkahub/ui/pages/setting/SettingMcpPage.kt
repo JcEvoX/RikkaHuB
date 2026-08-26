@@ -199,6 +199,13 @@ fun SettingMcpPage(vm: SettingVM = koinViewModel()) {
                     bottom = innerPadding.calculateBottomPadding() + 16.dp,
                 )
             ) {
+                item(key = "reverse_workbench") {
+                    ReverseWorkbenchCard(
+                        settings = settings,
+                        onUpdateSettings = { vm.updateSettings(it) },
+                        modifier = Modifier.animateItem(),
+                    )
+                }
                 items(mcpConfigs, key = { it.id }) { mcpConfig ->
                     McpServerItem(
                         item = mcpConfig,
