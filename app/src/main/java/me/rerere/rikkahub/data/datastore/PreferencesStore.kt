@@ -268,8 +268,12 @@ class SettingsStore(
             }.toMutableList()
             val assistants = it.assistants.ifEmpty { DEFAULT_ASSISTANTS }.toMutableList()
             DEFAULT_ASSISTANTS.forEach { defaultAssistant ->
-                if (assistants.none { it.id == defaultAssistant.id }) {
+                val existingIndex = assistants.indexOfFirst { it.id == defaultAssistant.id }
+                if (existingIndex < 0) {
                     assistants.add(defaultAssistant.copy())
+                } else if (assistants[existingIndex].name.isBlank()) {
+                    // 老用户升级：默认助手名称空缺时补齐默认名（不覆盖用户自定义名）
+                    assistants[existingIndex] = assistants[existingIndex].copy(name = defaultAssistant.name)
                 }
             }
             val ttsProviders = it.ttsProviders.ifEmpty { DEFAULT_TTS_PROVIDERS }.toMutableList()
@@ -1089,7 +1093,7 @@ internal val DEFAULT_ASSISTANTS = listOf(
     ),
     Assistant(
         id = Uuid.parse("3d47790c-c415-4b90-9388-751128adb0a0"),
-        name = "",
+        name = "通用助手",
         systemPrompt = """
             You are a helpful assistant, called {{char}}, based on model {{model_name}}.
 
